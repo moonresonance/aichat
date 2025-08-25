@@ -4,6 +4,9 @@ import { ElForm, ElFormItem, ElInput, ElButton, ElMessage, ElCard } from 'elemen
 import { ArrowRight, User, Lock } from '@element-plus/icons-vue';
 import {login,register} from "@/api/userapi.js";
 import { useRouter } from 'vue-router';
+import {useUserStore} from "@/stores/user.js";
+
+const userStore=useUserStore();
 const router = useRouter();
 const isLoginMode = ref(true);
 const formData = reactive({ name: '', password: '',confirmPassword:''});
@@ -50,8 +53,9 @@ const handleSubmit = async () => {
   await formRef.value.validate();
   try {
     if (isLoginMode.value) {
-      console.log(formData);
       const data=await login(formData);
+      console.log(data);
+      userStore.login(data.data);
       toggleMode();
       router.push('/home');
       ElMessage.success(data.msg);

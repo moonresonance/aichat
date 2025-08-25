@@ -3,6 +3,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import Loginregister from '@/components/login/first.vue'
 import home from '@/components/home/home.vue'
 
+
 const routes = [
     {
         path: '/',
