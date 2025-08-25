@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    /* 基本选项 */
+    "target": "ES2017",                 // 编译后 JS 版本
+    "module": "ESNext",                 // 模块系统
+    "moduleResolution": "node",         // 模块解析策略
+    "lib": ["ES2017", "DOM"],           // 标准库
+    "allowJs": true,                     // 允许编译 JS 文件
+    "checkJs": false,                    // 不检查 JS 文件类型
+    "strict": true,                      // 开启严格类型检查
+    "esModuleInterop": true,             // 支持 import 语法
+    "skipLibCheck": true,                // 跳过库文件类型检查
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,           // 允许导入 JSON
+    "isolatedModules": true,             // 支持单文件编译
+    "jsx": "preserve",                   // Vue JSX 支持
+
+    /* 路径别名 */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+
+    /* 输出选项 */
+    "outDir": "dist",
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.js"],
+  "exclude": ["node_modules", "dist"]
+}
