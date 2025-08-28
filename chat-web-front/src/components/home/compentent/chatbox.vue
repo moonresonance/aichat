@@ -77,7 +77,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, nextTick, computed, onMounted } from "vue";
+import {
+  ref,
+  reactive,
+  watch,
+  nextTick,
+  computed,
+  onMounted,
+  onUnmounted,
+} from "vue";
 import { marked } from "marked";
 import hljs from "highlight.js/lib/common";
 import "highlight.js/styles/github-dark.css";
@@ -163,11 +171,25 @@ const isLastAI = (msg: Message) => {
   return list.length > 0 && list[list.length - 1] === msg;
 };
 
+// 平滑滚动到底部
 const scrollToBottom = () => {
   setTimeout(() => {
     const container = document.querySelector(".chat-messages");
-    if (container) container.scrollTop = container.scrollHeight;
+    if (container) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   });
+};
+
+// 立即滚动到底部(不使用平滑效果，确保AI回答时内容实时可见)
+const immediateScrollToBottom = () => {
+  const container = document.querySelector(".chat-messages");
+  if (container) {
+    container.scrollTop = container.scrollHeight;
+  }
 };
 
 // 监听会话切换
@@ -210,7 +232,68 @@ watch(messageInput, () => {
 onMounted(() => {
   nextTick(() => {
     autoResize();
+
+    // 添加自动滚动功能
+    const chatContainer = document.querySelector(".chat-messages");
+    if (chatContainer) {
+      // 监听滚动事件，判断用户是否手动上滑
+      chatContainer.addEventListener("scroll", () => {
+        // 判断是否在底部附近
+        const isAtBottom =
+          chatContainer.scrollHeight -
+            chatContainer.scrollTop -
+            chatContainer.clientHeight <
+          50;
+
+        // 当用户向上滚动时，暂停自动滚动；接近底部时恢复自动滚动
+        shouldAutoScroll = isAtBottom;
+
+        // 如果接近底部，则继续自动滚动
+        if (isAtBottom) {
+          immediateScrollToBottom();
+        }
+      });
+
+      // 初始滚动到底部
+      immediateScrollToBottom();
+    }
   });
+});
+
+// 自动下滑功能
+const handleScroll = () => {
+  const container = document.querySelector(".chat-messages");
+  if (!container) return;
+
+  // 如果用户滚动到接近底部，自动滚动到底部
+  // 这里定义"接近底部"为距离底部100px内
+  const isNearBottom =
+    container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+  if (isNearBottom) {
+    // 使用即时滚动以更快响应
+    immediateScrollToBottom();
+  }
+};
+
+// 是否应该自动滚动
+let shouldAutoScroll = true;
+
+// 添加消息变化监听，以便在内容变化时自动滚动
+watch(
+  () => messages.value.length,
+  () => {
+    if (shouldAutoScroll) {
+      immediateScrollToBottom();
+    }
+  }
+);
+
+// 组件卸载时清理
+onUnmounted(() => {
+  const chatContainer = document.querySelector(".chat-messages");
+  if (chatContainer) {
+    chatContainer.removeEventListener("scroll", handleScroll);
+  }
 });
 
 const stopGeneration = () => {
@@ -335,7 +418,7 @@ const sendMessage = async () => {
   thinkAnimation = setInterval(() => {
     aiMessage.think = "AI 正在思考" + ".".repeat(dotIndex % 4);
     dotIndex++;
-    scrollToBottom();
+    immediateScrollToBottom();
   }, 500);
 
   try {
@@ -375,7 +458,7 @@ const sendMessage = async () => {
       aiMessage.content += answerText[answerIndex];
       aiMessage.html = safeRender(aiMessage.content);
       answerIndex++;
-      scrollToBottom();
+      immediateScrollToBottom(); // 使用即时滚动确保内容始终可见
       highlightBlocks();
     }, 20);
 
@@ -552,7 +635,7 @@ const copyMessage = (msg: Message) => {
   padding-left: 20px;
 }
 .chat-input-area {
-  padding: 10px 20px 20px 20px;
+  padding: 10px 20px 40px 20px;
   background-color: transparent;
   max-width: 100%;
   width: 100%;
@@ -574,7 +657,7 @@ const copyMessage = (msg: Message) => {
   height: 36px;
   min-height: 36px;
   max-height: 200px;
-  width: 500px;
+  width: 800px;
   margin: 0 auto;
 }
 .chat-input-container:focus-within {
@@ -614,7 +697,7 @@ const copyMessage = (msg: Message) => {
   flex-shrink: 0;
   transition: background-color 0.2s, opacity 0.2s;
   position: absolute;
-  left: calc(50% + 255px);
+  left: calc(50% + 410px);
   top: 10px;
 }
 .send-button:disabled {
