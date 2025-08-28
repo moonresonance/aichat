@@ -46,13 +46,23 @@ const handleDeletedSession = (id: number) => {
   color: var(--text-primary);
 }
 .menu {
-  width: 260px;
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  width: 320px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--sidebar-border);
+  transition: width 0.3s ease;
+}
+@media (max-width: 768px) {
+  .menu {
+    width: 100%;
+    position: absolute;
+    z-index: 10;
+    /* Add logic to hide/show menu on mobile */
+  }
 }
 .chat-box {
   flex: 1;
-  padding: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden; /* Prevent content from overflowing */
 }
 </style>

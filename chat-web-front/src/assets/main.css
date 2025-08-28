@@ -29,27 +29,41 @@ a {
   --bg-start: #f3f6fb;
   --bg-end: #eef2f7;
   --sidebar-bg: #ffffff; /* light mode sidebar */
-  --sidebar-border: rgba(0, 0, 0, 0.06);
-  --sidebar-hover: rgba(0, 0, 0, 0.04);
-  --sidebar-selected: rgba(0, 0, 0, 0.06);
+  --sidebar-border: #e0e0e0;
+  --sidebar-hover: #f0f0f0;
+  --sidebar-selected: #e0e5ec;
+  --sidebar-search-bg: #f0f0f0;
   --panel-bg: #ffffff;
   --text-primary: #0f172a;
   --sidebar-text: #0f172a;
   --muted: #6b7280;
+
+  /* Chat-specific colors */
+  --chat-bg: #f3f6fb;
+  --ai-message-bg: #ffffff;
+  --user-message-bg: #dcf8c6;
+  --accent-color: #3b82f6;
 }
 
 /* dark theme */
 .dark {
-  --bg-start: #0b1220;
-  --bg-end: #071126;
-  --sidebar-bg: #0f172a; /* dark sidebar */
-  --sidebar-border: rgba(255, 255, 255, 0.06);
-  --sidebar-hover: rgba(255, 255, 255, 0.07);
-  --sidebar-selected: rgba(255, 255, 255, 0.1);
-  --panel-bg: #071026;
+  --bg-start: #17212b;
+  --bg-end: #17212b;
+  --sidebar-bg: #222e3a; /* dark sidebar */
+  --sidebar-border: #2d3a47;
+  --sidebar-hover: #2c3845;
+  --sidebar-selected: #3a4a5a;
+  --sidebar-search-bg: #17212b;
+  --panel-bg: #17212b;
   --text-primary: #e6eef8;
   --sidebar-text: #e6eef8;
   --muted: #9aa4b2;
   --ai-text: #60a5fa; /* AI message text (dark) */
   color-scheme: dark;
+
+  /* Chat-specific colors */
+  --chat-bg: #17212b;
+  --ai-message-bg: #2a3948;
+  --user-message-bg: #056055;
+  --accent-color: #3b82f6;
 }

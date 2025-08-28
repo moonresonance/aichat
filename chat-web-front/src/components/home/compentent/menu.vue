@@ -3,12 +3,15 @@ import { onMounted, ref, computed, watch } from "vue";
 import { getSessionList } from "@/api/session";
 import { useUserStore } from "@/stores/user";
 import { createSession } from "@/api/session";
+import { deleteSession } from "@/api/session";
 import router from "@/router";
+
 interface SessionItem {
   id: number;
   name: string;
   userId: number;
 }
+
 const menuList = ref<SessionItem[]>([]);
 const selectedId = ref<number | null>(null);
 const loadedOnce = ref(false);
@@ -19,7 +22,6 @@ const emit = defineEmits<{
   (e: "selectSession", id: number): void;
   (e: "deletedSession", id: number): void;
 }>();
-import { deleteSession } from "@/api/session";
 const isDark = ref(document.documentElement.classList.contains("dark"));
 
 const toggleDark = () => {
@@ -44,9 +46,10 @@ const avatarSrc = computed(() => {
     return "https://via.placeholder.com/40";
   }
 });
-// 模拟新会话 ID 自增（真实环境应由后端返回）仅供新名字序号展示
+
 let nextId = 1000;
 const userId = computed(() => userStore.userState.id);
+
 const fetchMenuList = async () => {
   if (!userId.value || userId.value === 0) {
     errorMsg.value = "用户未登录";
@@ -56,11 +59,9 @@ const fetchMenuList = async () => {
   try {
     const res = await getSessionList({ userId: userId.value });
     menuList.value = res.data || [];
-
     if (menuList.value.length === 0) {
       errorMsg.value = "暂无会话";
     } else {
-      // 默认选中第一个会话
       selectedId.value = menuList.value[0].id;
       if (selectedId.value != null) emit("selectSession", selectedId.value); // ✅ 触发父组件更新
       nextId = Math.max(...menuList.value.map((i) => i.id)) + 1;
@@ -74,14 +75,12 @@ const fetchMenuList = async () => {
   }
 };
 
-// 点击会话
 const handleClick = (item: SessionItem) => {
   selectedId.value = item.id;
   console.log("点击了会话:", item);
   if (selectedId.value != null) emit("selectSession", selectedId.value);
 };
 
-// 新聊天逻辑
 const handleNewChat = async () => {
   if (!userId.value) {
     console.warn("用户未登录，无法创建会话");
@@ -94,11 +93,8 @@ const handleNewChat = async () => {
   };
 
   try {
-    // 创建新会话
     await createSession(payload);
-    // 刷新列表
     await fetchMenuList();
-    // 选中最新创建的会话（假设是最后一个）
     if (menuList.value.length > 0) {
       selectedId.value = menuList.value[menuList.value.length - 1].id;
       if (selectedId.value != null) emit("selectSession", selectedId.value);
@@ -108,7 +104,6 @@ const handleNewChat = async () => {
   }
 };
 
-// 删除会话
 const handleDelete = async (id: number) => {
   if (!confirm("确定要删除该会话吗？此操作不可恢复。")) return;
   try {
@@ -124,7 +119,6 @@ const handleDelete = async (id: number) => {
   }
 };
 
-// 监听用户登录状态，登录后立即加载一次历史会话
 watch(
   () => userId.value,
   (val) => {
@@ -141,65 +135,60 @@ onMounted(() => {
 
 <template>
   <div class="menu-container">
-    <!-- LOGO 区域 -->
-    <div class="menu-logo">
-      <div
-        style="
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-        "
-      >
-        <span class="logo-text">AI 聊天</span>
-        <button
-          @click="toggleDark"
-          class="theme-toggle"
-          :title="isDark ? 'Light mode' : 'Dark mode'"
-        >
-          {{ isDark ? "☀️" : "🌙" }}
-        </button>
-      </div>
-    </div>
-
-    <!-- 用户信息 -->
-    <div class="userinfo">
-      <img :src="avatarSrc" alt="头像" class="user-avatar" />
-      <span class="user-name">{{ userStore.userState?.name || "游客" }}</span>
-    </div>
-
-    <!-- 新聊天按钮 -->
+    <!-- Header with Search and New Chat -->
     <div class="menu-header">
-      <button class="new-chat-btn" @click="handleNewChat">+ 新聊天</button>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="搜索" class="search-input" />
+      </div>
+      <button @click="handleNewChat" class="new-chat-icon" title="新聊天">
+        <span>➕</span>
+      </button>
     </div>
 
-    <div v-if="loading" class="menu-status">加载中...</div>
-    <div v-else-if="errorMsg" class="menu-status">{{ errorMsg }}</div>
-    <div v-else>
-      <div
-        v-for="item in menuList"
-        :key="item.id"
-        class="menu-item"
-        :class="{ selected: selectedId === item.id }"
-      >
+    <!-- Chat List -->
+    <div class="chat-list">
+      <div v-if="loading" class="menu-status">加载中...</div>
+      <div v-else-if="errorMsg" class="menu-status">{{ errorMsg }}</div>
+      <div v-else>
         <div
-          style="flex: 1; display: flex; align-items: center; gap: 8px"
+          v-for="item in menuList"
+          :key="item.id"
+          class="menu-item"
+          :class="{ selected: selectedId === item.id }"
           @click="handleClick(item)"
         >
-          <div class="menu-item-icon">💬</div>
-          <div class="menu-item-name">{{ item.name }}</div>
-          <div class="menu-item-index">
-            #{{ menuList.findIndex((s) => s.id === item.id) + 1 }}
+          <div class="menu-item-content">
+            <div class="menu-item-name">{{ item.name }}</div>
+            <div class="menu-item-detail">
+              <span class="menu-item-index"
+                >#{{ menuList.findIndex((s) => s.id === item.id) + 1 }}</span
+              >
+            </div>
           </div>
+          <button
+            class="delete-btn"
+            @click.stop="handleDelete(item.id)"
+            title="删除"
+          >
+            🗑️
+          </button>
         </div>
-        <button
-          class="delete-btn"
-          @click.stop="handleDelete(item.id)"
-          title="删除"
-        >
-          🗑️
-        </button>
       </div>
+    </div>
+
+    <!-- Footer with User Info and Theme Toggle -->
+    <div class="menu-footer">
+      <div class="userinfo">
+        <span class="user-name">{{ userStore.userState?.name || "游客" }}</span>
+      </div>
+      <button
+        @click="toggleDark"
+        class="theme-toggle"
+        :title="isDark ? 'Light mode' : 'Dark mode'"
+      >
+        {{ isDark ? "☀️" : "🌙" }}
+      </button>
     </div>
   </div>
 </template>
@@ -207,80 +196,71 @@ onMounted(() => {
 <style scoped>
 .menu-container {
   background-color: var(--sidebar-bg);
-  color: var(--sidebar-text, var(--text-primary));
-  padding: 20px 12px;
+  color: var(--sidebar-text);
   height: 100%;
-  overflow-y: auto;
-  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  border-right: 1px solid var(--sidebar-border);
-  transition: background-color 0.25s, color 0.25s;
-}
-
-/* LOGO 区域 */
-.menu-logo {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0 40px;
   flex-direction: column;
-  margin-bottom: 12px;
+  border-right: 1px solid var(--sidebar-border);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.logo-text {
-  font-size: 18px;
-  font-weight: 700;
-  color: inherit;
-  letter-spacing: 0.6px;
-}
-
-/* 用户信息 - 竖直排列 */
-.userinfo {
+.menu-header {
   display: flex;
-  flex-direction: column; /* 垂直排列 */
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+.search-bar {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  background-color: var(--sidebar-search-bg);
+  border-radius: 20px;
+  padding: 0 10px;
+  margin-right: 10px;
+}
+
+.search-icon {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.search-input {
+  border: none;
+  background: transparent;
+  color: var(--sidebar-text);
+  padding: 8px 5px;
+  width: 100%;
+  outline: none;
+}
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+.new-chat-icon {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 22px;
+  padding: 5px;
+  border-radius: 50%;
+  display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20px;
+  transition: background-color 0.2s;
+}
+.new-chat-icon:hover {
+  background-color: var(--sidebar-hover);
 }
 
-.user-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: 2px solid var(--sidebar-border);
-  object-fit: cover;
-  margin-bottom: 6px; /* 与名字间距 */
+.chat-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 8px 0;
 }
 
-.user-name {
-  font-size: 14px;
-  font-weight: bold;
-  color: var(--sidebar-text, var(--text-primary));
-  text-align: center;
-  padding-bottom: 100px;
-}
-
-/* 新聊天按钮 */
-.menu-header {
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.new-chat-btn {
-  padding: 8px 14px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #10b981, #06b6d4);
-  color: #08232a;
-  cursor: pointer;
-  font-weight: 700;
-  transition: all 0.16s ease-in-out;
-}
-.new-chat-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.4);
-}
-
-/* 会话列表 */
 .menu-status {
   text-align: center;
   padding: 16px;
@@ -290,58 +270,90 @@ onMounted(() => {
 .menu-item {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-  border-radius: 8px;
+  padding: 10px 15px;
   cursor: pointer;
-  transition: background-color 0.14s, transform 0.08s, box-shadow 0.14s;
-  background: transparent;
+  transition: background-color 0.2s;
+  position: relative;
 }
 
 .menu-item:hover {
   background: var(--sidebar-hover);
-  transform: translateX(4px);
 }
 
 .menu-item.selected {
   background: var(--sidebar-selected);
-  font-weight: 700;
 }
 
-.menu-item-icon {
-  margin-right: 10px;
+.menu-item-content {
+  flex-grow: 1;
+  overflow: hidden;
 }
 
 .menu-item-name {
-  flex: 1;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.menu-item-index {
-  font-size: 11px;
-  opacity: 0.55;
+
+.menu-item-detail {
+  font-size: 13px;
+  color: var(--muted);
 }
 
-/* theme toggle and delete button */
-.theme-toggle {
-  background: transparent;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 16px;
-}
 .delete-btn {
   background: transparent;
   border: none;
   color: var(--muted);
   cursor: pointer;
   padding: 6px;
-  border-radius: 6px;
-  transition: background-color 0.2s, color 0.2s;
+  border-radius: 50%;
+  font-size: 16px;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
 }
+
+.menu-item:hover .delete-btn {
+  opacity: 1;
+}
+
 .delete-btn:hover {
-  background: var(--sidebar-hover);
   color: #ff5d5d;
+}
+
+.menu-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  border-top: 1px solid var(--sidebar-border);
+}
+
+.userinfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.user-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 20px;
+  padding: 5px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+.theme-toggle:hover {
+  background-color: var(--sidebar-hover);
 }
 </style>

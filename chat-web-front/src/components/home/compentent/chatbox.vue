@@ -7,69 +7,89 @@
           :key="m.id"
           :class="['message-item', m.sender]"
         >
-          <div class="message-avatar">
-            {{ m.sender === "user" ? "你" : "AI" }}
-          </div>
-          <div class="message-content" :class="m.sender">
-            <div v-if="m.think && showThink" class="message-think">
-              思考: {{ m.think }}
+          <img :src="getAvatar(m.sender)" alt="avatar" class="message-avatar" />
+          <div class="message-content-wrapper">
+            <div class="message-content" :class="m.sender">
+              <div v-if="m.think && showThink" class="message-think">
+                思考: {{ m.think }}
+              </div>
+              <div v-if="m.sender === 'user'" class="message-answer">
+                {{ m.content }}
+              </div>
+              <div
+                v-else
+                class="message-answer ai"
+                v-html="m.html || safeRender(m.content)"
+              ></div>
             </div>
-            <div v-if="m.sender === 'user'" class="message-answer">
-              {{ m.content }}
+            <div v-if="m.sender === 'ai'" class="message-actions">
+              <button class="act-btn" @click="copyMessage(m)">复制</button>
+              <button
+                class="act-btn"
+                v-if="isLastAI(m) && !isGenerating"
+                @click="regenerate(m)"
+              >
+                重新生成
+              </button>
             </div>
-            <div
-              v-else
-              class="message-answer ai"
-              v-html="m.html || safeRender(m.content)"
-            ></div>
-          </div>
-          <div v-if="m.sender === 'ai'" class="message-actions">
-            <button class="act-btn" @click="copyMessage(m)">复制</button>
-            <button
-              class="act-btn"
-              v-if="isLastAI(m) && !isGenerating"
-              @click="regenerate(m)"
-            >
-              重新生成
-            </button>
           </div>
         </div>
       </transition-group>
     </main>
-    <div class="chat-input-floating show">
-      <input
-        v-model="messageInput"
-        @keyup.enter="sendMessage"
-        type="text"
-        class="message-input"
-        placeholder="输入消息..."
-        :disabled="props.sessionId === null"
-      />
-      <button
-        class="send-button"
-        @click="sendMessage"
-        :disabled="props.sessionId === null || isGenerating"
-      >
-        发送
-      </button>
-      <button
-        v-if="isGenerating"
-        class="send-button stop"
-        @click="stopGeneration"
-      >
-        停止
-      </button>
+    <div class="chat-input-area">
+      <div class="chat-input-container">
+        <textarea
+          v-model="messageInput"
+          @keyup.enter.prevent="sendMessage"
+          class="message-input"
+          placeholder="输入消息..."
+          :disabled="props.sessionId === null"
+          rows="1"
+          @input="autoResize"
+          ref="textarea"
+        ></textarea>
+        <button
+          class="send-button"
+          @click="sendMessage"
+          :disabled="
+            props.sessionId === null || isGenerating || !messageInput.trim()
+          "
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+        <button
+          v-if="isGenerating"
+          class="send-button stop"
+          @click="stopGeneration"
+        >
+          ▢
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, nextTick } from "vue";
+import { ref, reactive, watch, nextTick, computed } from "vue";
 import { marked } from "marked";
 import hljs from "highlight.js/lib/common";
 import "highlight.js/styles/github-dark.css";
 import { ElMessage } from "element-plus";
 import { chatbyqwen3 } from "@/api/chatapi";
+import { useUserStore } from "@/stores/user";
 
 interface Message {
   id: number;
@@ -79,6 +99,18 @@ interface Message {
   think: string;
   html?: string; // rendered markdown (AI only)
 }
+
+const userStore = useUserStore();
+
+const getAvatar = (sender: "user" | "ai") => {
+  if (sender === "user") {
+    return (
+      (userStore.userState as any)?.avatar || "https://via.placeholder.com/40"
+    );
+  }
+  // You can replace this with your AI's avatar
+  return "https://via.placeholder.com/40/0000FF/FFFFFF?text=AI";
+};
 
 const props = defineProps<{
   sessionId: number | null;
@@ -97,6 +129,20 @@ const messages = ref<Message[]>([
   },
 ]);
 
+const messageCount = computed(() => messages.value.length);
+const currentSessionName = computed(() => {
+  // In a real app, you might get this from a store or props
+  return props.sessionId ? `会话 ${props.sessionId}` : "";
+});
+
+const formatTime = (date: Date) => {
+  if (!date) return "";
+  return date.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const messageInput = ref("");
 const context = ref<string[]>([]);
 const showThink = ref(true);
@@ -104,6 +150,14 @@ const customPrompt = ref("你是一个智能助手");
 const isGenerating = ref(false);
 let answerInterval: any = null;
 let thinkAnimation: any = null;
+const textarea = ref<HTMLTextAreaElement | null>(null);
+
+const autoResize = () => {
+  if (textarea.value) {
+    textarea.value.style.height = "auto";
+    textarea.value.style.height = `${textarea.value.scrollHeight}px`;
+  }
+};
 
 const highlightBlocks = () => {
   nextTick(() => {
@@ -357,126 +411,105 @@ const copyMessage = (msg: Message) => {
 
 <style scoped>
 .chat-wrapper {
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  background: transparent;
-  position: relative;
-  color: var(--text-primary, #111827);
+  background-color: var(--chat-bg);
+  color: var(--text-primary);
 }
+
 .chat-main {
   flex: 1;
   overflow-y: auto;
-  padding: 40px 20px;
-  display: flex;
-  justify-content: center;
-  background-color: transparent;
+  padding: 20px;
 }
 .chat-messages {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  max-width: 820px; /* limit width similar to ChatGPT */
+  gap: 24px;
+  max-width: 820px;
+  margin: 0 auto;
 }
 .message-item {
   display: flex;
   max-width: 100%;
   align-items: flex-start;
+  gap: 12px;
 }
 .message-item.user {
   flex-direction: row-reverse;
-  margin-left: auto;
 }
 .message-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(
-    135deg,
-    var(--accent-start, #3b82f6),
-    var(--accent-end, #06b6d4)
-  );
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  margin-right: 12px;
   flex-shrink: 0;
+  object-fit: cover;
 }
-.message-item.user .message-avatar {
-  background: linear-gradient(135deg, #f97316, #facc15);
-  margin-left: 12px;
-  margin-right: 0;
+.message-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 85%;
 }
 .message-content {
   position: relative;
-  display: inline-block;
-  padding: 11px;
-  border-radius: 8px;
+  padding: 10px 14px;
+  border-radius: 18px;
   font-size: 15px;
   line-height: 1.6;
-  background: var(--panel-bg, #ffffff);
-  color: #111827;
-  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.06);
   word-wrap: break-word;
   white-space: pre-wrap;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  max-width: min(100%, 720px); /* 限制宽度，自动换行 */
-  vertical-align: top;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 .message-item.ai .message-content {
-  align-self: flex-start;
+  background-color: var(--ai-message-bg);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
 }
 .message-item.user .message-content {
-  background: linear-gradient(135deg, #fff7ed, #ffedd5);
-  color: #111827;
-  border: 1px solid rgba(0, 0, 0, 0.03);
+  background-color: var(--user-message-bg);
+  color: var(--user-message-text);
+  border-bottom-right-radius: 4px;
 }
+
 .message-think {
   font-size: 12px;
-  color: var(--muted, #6b7280);
+  color: var(--muted);
   margin-bottom: 4px;
   font-style: italic;
 }
 .message-answer {
   font-size: 14px;
-  color: #111827;
 }
 .message-answer.ai {
-  color: var(--ai-text, #2563eb);
+  color: var(--text-primary);
 }
 /* 外侧操作按钮 */
 .message-actions {
   display: flex;
-  flex-direction: column;
   gap: 6px;
-  margin-left: 10px;
   align-self: flex-start;
+  padding-left: 10px;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
-.message-item.user .message-actions {
-  display: none;
+.message-item:hover .message-actions {
+  opacity: 1;
 }
+
 .act-btn {
   font-size: 12px;
   padding: 4px 8px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--sidebar-border);
+  background: var(--sidebar-bg);
   border-radius: 6px;
   cursor: pointer;
-  backdrop-filter: blur(4px);
+  color: var(--muted);
 }
 .act-btn:hover {
-  background: #f1f5f9;
-}
-.dark .act-btn {
-  background: rgba(30, 41, 59, 0.5);
-  color: #e2e8f0;
-  border-color: rgba(255, 255, 255, 0.2);
-}
-.dark .act-btn:hover {
-  background: rgba(51, 65, 85, 0.6);
+  background: var(--sidebar-hover);
+  color: var(--text-primary);
 }
 
 /* markdown 内部基础样式 */
@@ -493,13 +526,13 @@ const copyMessage = (msg: Message) => {
   background: #0f172a;
 }
 .message-answer.ai code:not(pre code) {
-  background: #f1f5f9;
+  background: rgba(0, 0, 0, 0.05);
   padding: 2px 5px;
   border-radius: 4px;
   font-size: 90%;
 }
 .dark .message-answer.ai code:not(pre code) {
-  background: #1e293b;
+  background: #2c3845;
 }
 .message-answer.ai h1,
 .message-answer.ai h2,
@@ -509,53 +542,73 @@ const copyMessage = (msg: Message) => {
 .message-answer.ai ul {
   padding-left: 20px;
 }
-.chat-input-floating {
-  position: fixed;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%) translateY(0);
+.chat-input-area {
+  padding: 10px 20px 20px 20px;
+  background-color: transparent;
+}
+.chat-input-container {
+  max-width: 820px;
+  margin: 0 auto;
   display: flex;
-  gap: 12px;
-  background: var(--panel-bg, #ffffff);
-  padding: 10px 14px;
-  border-radius: 999px;
-  box-shadow: 0 8px 30px rgba(2, 6, 23, 0.08);
-  z-index: 1000;
-  width: 64%;
-  max-width: 950px;
-  min-width: 360px;
+  align-items: flex-end;
+  position: relative;
+  background-color: var(--sidebar-bg);
+  border-radius: 28px;
+  border: 1px solid var(--sidebar-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.chat-input-container:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 .message-input {
-  flex: 1;
-  padding: 12px 16px;
-  border-radius: 24px;
-  border: 1px solid #d1d5db;
+  flex-grow: 1;
+  width: 100%;
+  padding: 18px 80px 18px 20px;
+  border-radius: 28px;
+  border: none;
+  background-color: transparent;
+  color: var(--sidebar-text);
   outline: none;
-  font-size: 14px;
+  font-size: 16px;
+  resize: none;
+  max-height: 200px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+.message-input:focus {
+  box-shadow: none;
 }
 .send-button {
-  padding: 10px 18px;
-  border-radius: 999px;
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  border-radius: 20px;
   border: none;
-  background: linear-gradient(135deg, #6f5fff, #3b82f6);
+  background: var(--accent-color);
   color: white;
   cursor: pointer;
-  font-weight: 600;
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.18);
-}
-
-/* Header inside chat column */
-.chat-header {
-  height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  background: rgba(255, 255, 255, 0.6);
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  transition: background-color 0.2s, opacity 0.2s;
 }
-.chat-header h2 {
-  margin: 0;
-  font-size: 16px;
-  color: #0f172a;
+.send-button:disabled {
+  background-color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.send-button.stop {
+  background-color: #ef4444;
+  right: 56px; /* Position it to the left of the send button */
+}
+.send-button svg {
+  width: 20px;
+  height: 20px;
 }
 </style>
