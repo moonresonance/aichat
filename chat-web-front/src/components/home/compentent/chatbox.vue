@@ -7,7 +7,6 @@
           :key="m.id"
           :class="['message-item', m.sender]"
         >
-          <img :src="getAvatar(m.sender)" alt="avatar" class="message-avatar" />
           <div class="message-content-wrapper">
             <div class="message-content" :class="m.sender">
               <div v-if="m.think && showThink" class="message-think">
@@ -48,42 +47,37 @@
           @input="autoResize"
           ref="textarea"
         ></textarea>
-        <button
-          class="send-button"
-          @click="sendMessage"
-          :disabled="
-            props.sessionId === null || isGenerating || !messageInput.trim()
-          "
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
-        </button>
-        <button
-          v-if="isGenerating"
-          class="send-button stop"
-          @click="stopGeneration"
-        >
-          ▢
-        </button>
       </div>
+      <button
+        v-if="!isGenerating"
+        class="send-button"
+        @click="sendMessage"
+        :disabled="
+          props.sessionId === null || isGenerating || !messageInput.trim()
+        "
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+      <button v-else class="send-button stop" @click="stopGeneration">▢</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, nextTick, computed } from "vue";
+import { ref, reactive, watch, nextTick, computed, onMounted } from "vue";
 import { marked } from "marked";
 import hljs from "highlight.js/lib/common";
 import "highlight.js/styles/github-dark.css";
@@ -101,16 +95,6 @@ interface Message {
 }
 
 const userStore = useUserStore();
-
-const getAvatar = (sender: "user" | "ai") => {
-  if (sender === "user") {
-    return (
-      (userStore.userState as any)?.avatar || "https://via.placeholder.com/40"
-    );
-  }
-  // You can replace this with your AI's avatar
-  return "https://via.placeholder.com/40/0000FF/FFFFFF?text=AI";
-};
 
 const props = defineProps<{
   sessionId: number | null;
@@ -155,7 +139,14 @@ const textarea = ref<HTMLTextAreaElement | null>(null);
 const autoResize = () => {
   if (textarea.value) {
     textarea.value.style.height = "auto";
-    textarea.value.style.height = `${textarea.value.scrollHeight}px`;
+    const newHeight = Math.min(200, Math.max(36, textarea.value.scrollHeight));
+    textarea.value.style.height = `${newHeight}px`;
+
+    // 更新父容器的高度
+    const container = textarea.value.closest(".chat-input-container");
+    if (container) {
+      (container as HTMLElement).style.height = `${newHeight}px`;
+    }
   }
 };
 
@@ -207,6 +198,20 @@ watch(
     scrollToBottom();
   }
 );
+
+// 监听输入内容变化，自动调整高度
+watch(messageInput, () => {
+  nextTick(() => {
+    autoResize();
+  });
+});
+
+// 组件挂载后初始化
+onMounted(() => {
+  nextTick(() => {
+    autoResize();
+  });
+});
 
 const stopGeneration = () => {
   if (answerInterval) {
@@ -298,6 +303,18 @@ const sendMessage = async () => {
   };
   messages.value.push(userMessage);
   messageInput.value = "";
+
+  // 重置输入框高度
+  nextTick(() => {
+    if (textarea.value) {
+      textarea.value.style.height = "36px";
+      const container = textarea.value.closest(".chat-input-container");
+      if (container) {
+        (container as HTMLElement).style.height = "36px";
+      }
+    }
+  });
+
   scrollToBottom();
 
   // 先插入 AI 消息对象，显示思考动画
@@ -434,17 +451,9 @@ const copyMessage = (msg: Message) => {
   display: flex;
   max-width: 100%;
   align-items: flex-start;
-  gap: 12px;
 }
 .message-item.user {
   flex-direction: row-reverse;
-}
-.message-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  object-fit: cover;
 }
 .message-content-wrapper {
   display: flex;
@@ -545,18 +554,28 @@ const copyMessage = (msg: Message) => {
 .chat-input-area {
   padding: 10px 20px 20px 20px;
   background-color: transparent;
-}
-.chat-input-container {
-  max-width: 820px;
+  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  position: relative;
+}
+.chat-input-container {
+  flex-grow: 0;
   position: relative;
   background-color: var(--sidebar-bg);
-  border-radius: 28px;
+  border-radius: 8px;
   border: 1px solid var(--sidebar-border);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, height 0.2s;
+  height: 36px;
+  min-height: 36px;
+  max-height: 200px;
+  width: 500px;
+  margin: 0 auto;
 }
 .chat-input-container:focus-within {
   border-color: var(--accent-color);
@@ -565,27 +584,24 @@ const copyMessage = (msg: Message) => {
 .message-input {
   flex-grow: 1;
   width: 100%;
-  padding: 18px 80px 18px 20px;
-  border-radius: 28px;
+  padding: 8px 12px;
+  border-radius: 8px;
   border: none;
   background-color: transparent;
   color: var(--sidebar-text);
   outline: none;
   font-size: 16px;
   resize: none;
-  max-height: 200px;
+  height: 20px;
   overflow-y: auto;
   box-sizing: border-box;
-  line-height: 1.5;
+  line-height: 1.2;
 }
 .message-input:focus {
   box-shadow: none;
 }
 .send-button {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  border-radius: 20px;
+  border-radius: 8px;
   border: none;
   background: var(--accent-color);
   color: white;
@@ -593,10 +609,13 @@ const copyMessage = (msg: Message) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   transition: background-color 0.2s, opacity 0.2s;
+  position: absolute;
+  left: calc(50% + 255px);
+  top: 10px;
 }
 .send-button:disabled {
   background-color: var(--muted);
@@ -605,7 +624,7 @@ const copyMessage = (msg: Message) => {
 }
 .send-button.stop {
   background-color: #ef4444;
-  right: 56px; /* Position it to the left of the send button */
+  font-size: 24px;
 }
 .send-button svg {
   width: 20px;
