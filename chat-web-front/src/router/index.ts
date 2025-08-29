@@ -1,23 +1,30 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from "vue-router";
 
-import Loginregister from '@/components/login/first.vue'
-import home from '@/components/home/home.vue'
-
+import Loginregister from "@/components/login/first.vue";
+import home from "@/components/home/home.vue";
+import Settings from "@/components/settings/Settings.vue";
 
 const routes = [
-    {
-        path: '/',
-        component: Loginregister
-    },
-    {
-        path: '/home',
-        component: home
-    },
-]
+  {
+    path: "/",
+    name: "login",
+    component: Loginregister,
+  },
+  {
+    path: "/home",
+    name: "home",
+    component: home,
+  },
+  {
+    path: "/settings",
+    name: "settings",
+    component: Settings,
+  },
+];
 
 const router = createRouter({
-    history: createWebHashHistory(),
-    routes: routes
-})
+  history: createWebHashHistory(),
+  routes: routes,
+});
 
-export default router
+export default router;
