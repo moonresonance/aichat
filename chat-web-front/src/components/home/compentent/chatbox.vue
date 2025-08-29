@@ -1,6 +1,6 @@
 <template>
   <div class="chat-wrapper">
-    <main class="chat-main">
+    <main class="chat-main" ref="scrollContainer">
       <transition-group name="message" tag="div" class="chat-messages">
         <div
           v-for="m in messages"
@@ -73,6 +73,31 @@
       </button>
       <button v-else class="send-button stop" @click="stopGeneration">▢</button>
     </div>
+    <!-- 回到底部按钮：离开底部且有新消息时显示 -->
+    <button
+      class="scroll-bottom-btn"
+      :class="{ show: showScrollToBottom }"
+      @click="handleScrollToBottom"
+      aria-label="回到底部"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        width="24"
+        height="24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <!-- 线条风格双箭头向下 -->
+        <path d="M6 8l6 6 6-6" />
+        <path d="M6 4l6 6 6-6" />
+        <!-- 底部基线 -->
+        <line x1="4" y1="20" x2="20" y2="20" />
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -144,6 +169,9 @@ let answerInterval: any = null;
 let thinkAnimation: any = null;
 const textarea = ref<HTMLTextAreaElement | null>(null);
 
+// 滚动容器（聊天主体）
+const scrollContainer = ref<HTMLElement | null>(null);
+
 const autoResize = () => {
   if (textarea.value) {
     textarea.value.style.height = "auto";
@@ -172,9 +200,13 @@ const isLastAI = (msg: Message) => {
 };
 
 // 平滑滚动到底部
+const getScrollEl = () =>
+  scrollContainer.value ||
+  (document.querySelector(".chat-main") as HTMLElement | null);
+
 const scrollToBottom = () => {
   setTimeout(() => {
-    const container = document.querySelector(".chat-messages");
+    const container = getScrollEl();
     if (container) {
       container.scrollTo({
         top: container.scrollHeight,
@@ -186,10 +218,40 @@ const scrollToBottom = () => {
 
 // 立即滚动到底部(不使用平滑效果，确保AI回答时内容实时可见)
 const immediateScrollToBottom = () => {
-  const container = document.querySelector(".chat-messages");
+  const container = getScrollEl();
   if (container) {
     container.scrollTop = container.scrollHeight;
   }
+};
+
+// 回到底部按钮显示控制
+const showScrollToBottom = ref(false); // 控制按钮显隐
+const newMessagesPending = ref(false); // 离开底部后是否有新消息
+
+const isAtBottom = (el: HTMLElement, threshold = 12) => {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+};
+
+const recomputeScrollButton = () => {
+  const el = getScrollEl();
+  if (!el) return;
+  const atBottom = isAtBottom(el);
+  if (atBottom) {
+    newMessagesPending.value = false;
+    showScrollToBottom.value = false;
+  } else {
+    // 离开底部：如果已有未读或正在生成则展示按钮
+    showScrollToBottom.value = newMessagesPending.value || isGenerating.value;
+  }
+  shouldAutoScroll = atBottom; // 同步原有逻辑
+};
+
+const handleScrollToBottom = () => {
+  const el = getScrollEl();
+  if (!el) return;
+  scrollToBottom();
+  newMessagesPending.value = false;
+  showScrollToBottom.value = false;
 };
 
 // 监听会话切换
@@ -232,29 +294,11 @@ watch(messageInput, () => {
 onMounted(() => {
   nextTick(() => {
     autoResize();
-
-    // 添加自动滚动功能
-    const chatContainer = document.querySelector(".chat-messages");
-    if (chatContainer) {
-      // 监听滚动事件，判断用户是否手动上滑
-      chatContainer.addEventListener("scroll", () => {
-        // 判断是否在底部附近
-        const isAtBottom =
-          chatContainer.scrollHeight -
-            chatContainer.scrollTop -
-            chatContainer.clientHeight <
-          50;
-
-        // 当用户向上滚动时，暂停自动滚动；接近底部时恢复自动滚动
-        shouldAutoScroll = isAtBottom;
-
-        // 如果接近底部，则继续自动滚动
-        if (isAtBottom) {
-          immediateScrollToBottom();
-        }
+    const el = getScrollEl();
+    if (el) {
+      el.addEventListener("scroll", () => {
+        recomputeScrollButton();
       });
-
-      // 初始滚动到底部
       immediateScrollToBottom();
     }
   });
@@ -262,17 +306,11 @@ onMounted(() => {
 
 // 自动下滑功能
 const handleScroll = () => {
-  const container = document.querySelector(".chat-messages");
+  const container = getScrollEl();
   if (!container) return;
-
-  // 如果用户滚动到接近底部，自动滚动到底部
-  // 这里定义"接近底部"为距离底部100px内
-  const isNearBottom =
+  const nearBottom =
     container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-  if (isNearBottom) {
-    // 使用即时滚动以更快响应
-    immediateScrollToBottom();
-  }
+  if (nearBottom) immediateScrollToBottom();
 };
 
 // 是否应该自动滚动
@@ -282,18 +320,21 @@ let shouldAutoScroll = true;
 watch(
   () => messages.value.length,
   () => {
+    const el = getScrollEl();
     if (shouldAutoScroll) {
       immediateScrollToBottom();
+    } else if (el && !isAtBottom(el)) {
+      // 离开底部新增消息
+      newMessagesPending.value = true;
+      recomputeScrollButton();
     }
   }
 );
 
 // 组件卸载时清理
 onUnmounted(() => {
-  const chatContainer = document.querySelector(".chat-messages");
-  if (chatContainer) {
-    chatContainer.removeEventListener("scroll", handleScroll);
-  }
+  const el = getScrollEl();
+  if (el) el.removeEventListener("scroll", handleScroll);
 });
 
 const stopGeneration = () => {
@@ -326,6 +367,7 @@ const regenerate = async (aiMsg: Message) => {
   thinkAnimation = setInterval(() => {
     aiMsg.think = "AI 正在思考" + ".".repeat(dot % 4);
     dot++;
+    // 不再强制滚动，允许用户上滑查看历史
   }, 500);
   try {
     const resp: any = await chatbyqwen3({
@@ -359,6 +401,12 @@ const regenerate = async (aiMsg: Message) => {
       aiMsg.html = safeRender(aiMsg.content);
       i++;
       highlightBlocks();
+      // 若用户离开底部，期间流式更新也触发按钮
+      const el = getScrollEl();
+      if (el && !isAtBottom(el)) {
+        newMessagesPending.value = true;
+        recomputeScrollButton();
+      }
     }, 20);
   } catch (e: any) {
     clearInterval(thinkAnimation);
@@ -418,7 +466,7 @@ const sendMessage = async () => {
   thinkAnimation = setInterval(() => {
     aiMessage.think = "AI 正在思考" + ".".repeat(dotIndex % 4);
     dotIndex++;
-    immediateScrollToBottom();
+    // 移除强制跟随，用户可在思考阶段自由上滑
   }, 500);
 
   try {
@@ -458,8 +506,13 @@ const sendMessage = async () => {
       aiMessage.content += answerText[answerIndex];
       aiMessage.html = safeRender(aiMessage.content);
       answerIndex++;
-      immediateScrollToBottom(); // 使用即时滚动确保内容始终可见
+      if (shouldAutoScroll) immediateScrollToBottom(); // 仅在仍位于底部时自动跟随
       highlightBlocks();
+      const el2 = getScrollEl();
+      if (el2 && !isAtBottom(el2)) {
+        newMessagesPending.value = true;
+        recomputeScrollButton();
+      }
     }, 20);
 
     context.value.push(`Q: ${question}`);
@@ -712,5 +765,40 @@ const copyMessage = (msg: Message) => {
 .send-button svg {
   width: 20px;
   height: 20px;
+}
+
+/* 回到底部按钮样式 */
+.scroll-bottom-btn {
+  position: fixed;
+  right: 28px;
+  bottom: 120px; /* 避开输入框 */
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--sidebar-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s, border-color 0.2s, background 0.2s;
+  z-index: 50;
+}
+.scroll-bottom-btn.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.scroll-bottom-btn:hover {
+  border-color: var(--accent-color);
+  background: var(--ai-message-bg);
+}
+.dark .scroll-bottom-btn {
+  background: #1e2530;
 }
 </style>
