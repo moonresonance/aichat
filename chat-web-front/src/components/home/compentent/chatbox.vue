@@ -22,13 +22,13 @@
               ></div>
             </div>
             <div v-if="m.sender === 'ai'" class="message-actions">
-              <button class="act-btn" @click="copyMessage(m)">复制</button>
+              <button class="act-btn" @click="copyMessage(m)">⧉</button>
               <button
                 class="act-btn"
                 v-if="isLastAI(m) && !isGenerating"
                 @click="regenerate(m)"
               >
-                重新生成
+                ↻
               </button>
             </div>
           </div>
@@ -240,8 +240,8 @@ const recomputeScrollButton = () => {
     newMessagesPending.value = false;
     showScrollToBottom.value = false;
   } else {
-    // 离开底部：如果已有未读或正在生成则展示按钮
-    showScrollToBottom.value = newMessagesPending.value || isGenerating.value;
+    // 新需求：只要离开底部就展示按钮（不再限制必须有新消息或正在生成）
+    showScrollToBottom.value = true;
   }
   shouldAutoScroll = atBottom; // 同步原有逻辑
 };
