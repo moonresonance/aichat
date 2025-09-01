@@ -115,7 +115,7 @@ import { marked } from "marked";
 import hljs from "highlight.js/lib/common";
 import "highlight.js/styles/github-dark.css";
 import { ElMessage } from "element-plus";
-import { chatbyqwen3 } from "@/api/chatapi";
+import { chatbyqwen3, getchatlist ,addchat} from "@/api/chatapi";
 import { useUserStore } from "@/stores/user";
 
 interface Message {
@@ -145,12 +145,6 @@ const messages = ref<Message[]>([
     think: "",
   },
 ]);
-
-const messageCount = computed(() => messages.value.length);
-const currentSessionName = computed(() => {
-  // In a real app, you might get this from a store or props
-  return props.sessionId ? `会话 ${props.sessionId}` : "";
-});
 
 const formatTime = (date: Date) => {
   if (!date) return "";
@@ -255,32 +249,62 @@ const handleScrollToBottom = () => {
 };
 
 // 监听会话切换
+// ✅ 切换会话时，从数据库拉历史消息
 watch(
-  () => props.sessionId,
-  (newId) => {
-    if (newId == null) {
-      messages.value = [
-        {
-          id: Date.now(),
-          content: "已删除或未选中会话，请选择或新建会话",
-          sender: "ai",
-          timestamp: new Date(),
-          think: "",
-        },
-      ];
-    } else {
-      messages.value = [
-        {
-          id: Date.now(),
-          content: `欢迎进入会话 ${newId}`,
-          sender: "ai",
-          timestamp: new Date(),
-          think: "",
-        },
-      ];
+    () => props.sessionId,
+    async (newId) => {
+      if (newId == null) {
+        messages.value = [
+          {
+            id: Date.now(),
+            content: "已删除或未选中会话，请选择或新建会话",
+            sender: "ai",
+            timestamp: new Date(),
+            think: "",
+          },
+        ];
+      } else {
+        try{
+          const resp: any = await getchatlist({
+            userId: props.userId,
+            sessionId: newId,
+          });
+          if(resp.data.length > 0){
+            messages.value = resp.data.map((item: any) => ({
+              id: item.id,
+              content: item.content,
+              sender: item.role === "user" ? "user" : "ai",
+              timestamp: new Date(),
+              think: "",
+              html: item.role === "ai" ? marked.parse(item.content) : undefined,
+            }));
+          }else {
+            messages.value = [
+              {
+                id: Date.now(),
+                content: `欢迎使用幻想ai,很高兴为你服务`,
+                sender: "ai",
+                timestamp: new Date(),
+                think: "",
+              },
+            ];
+          }
+        }
+        catch(e){
+          console.error("获取聊天记录失败:", e);
+          messages.value = [
+            {
+              id: Date.now(),
+              content: `进入会话 ${newId}，但加载历史失败`,
+              sender: "ai",
+              timestamp: new Date(),
+              think: "",
+            },
+          ];
+        }
+      }
+      scrollToBottom();
     }
-    scrollToBottom();
-  }
 );
 
 // 监听输入内容变化，自动调整高度
@@ -351,31 +375,40 @@ const stopGeneration = () => {
 
 const regenerate = async (aiMsg: Message) => {
   if (isGenerating.value) return;
+
   const idx = messages.value.indexOf(aiMsg);
   const prevUser = [...messages.value.slice(0, idx)]
-    .reverse()
-    .find((m) => m.sender === "user");
+      .reverse()
+      .find((m) => m.sender === "user");
+
   if (!prevUser) {
     ElMessage.warning("无可重生的问题");
     return;
   }
+
+  // 重置 AI 消息
   aiMsg.content = "";
   aiMsg.html = "";
   aiMsg.think = "AI 正在思考";
   isGenerating.value = true;
+
+  // 思考动画
   let dot = 0;
   thinkAnimation = setInterval(() => {
     aiMsg.think = "AI 正在思考" + ".".repeat(dot % 4);
     dot++;
-    // 不再强制滚动，允许用户上滑查看历史
   }, 500);
+
   try {
+    // 调用 AI 接口
     const resp: any = await chatbyqwen3({
       question: prevUser.content,
       prompt: customPrompt.value,
       stream: true,
     });
     clearInterval(thinkAnimation);
+
+    // 解析 AI 返回
     const raw = resp?.answer || resp?.data?.answer || resp;
     let thinkText = "";
     let answerText = "";
@@ -386,7 +419,25 @@ const regenerate = async (aiMsg: Message) => {
     } else {
       answerText = JSON.stringify(raw);
     }
+
     aiMsg.think = thinkText;
+
+    // ✅ 保存 AI 消息到数据库
+    try {
+      const savedAI = await addchat({
+        userId: props.userId!,
+        sessionId: props.sessionId!,
+        role: "ai",
+        content: answerText,
+      });
+      if (savedAI?.data?.id) {
+        aiMsg.id = savedAI.data.id; // 替换临时 id
+      }
+    } catch (err) {
+      console.error("保存 AI 消息失败:", err);
+    }
+
+    // 流式逐字显示 AI 回复
     let i = 0;
     answerInterval = setInterval(() => {
       if (i >= answerText.length) {
@@ -401,7 +452,7 @@ const regenerate = async (aiMsg: Message) => {
       aiMsg.html = safeRender(aiMsg.content);
       i++;
       highlightBlocks();
-      // 若用户离开底部，期间流式更新也触发按钮
+
       const el = getScrollEl();
       if (el && !isAtBottom(el)) {
         newMessagesPending.value = true;
@@ -417,16 +468,16 @@ const regenerate = async (aiMsg: Message) => {
   }
 };
 
+
 // 发送消息
 const sendMessage = async () => {
-  if (props.sessionId === null) return;
-
+  if (props.sessionId === null || props.userId === null) return;
   const question = messageInput.value.trim();
   if (!question) return;
 
-  // 用户消息
+  // 前端临时消息
   const userMessage: Message = {
-    id: Date.now(),
+    id: Date.now(), // 临时 id
     content: question,
     sender: "user",
     timestamp: new Date(),
@@ -435,24 +486,22 @@ const sendMessage = async () => {
   messages.value.push(userMessage);
   messageInput.value = "";
 
-  // 重置输入框高度
   nextTick(() => {
     if (textarea.value) {
       textarea.value.style.height = "36px";
       const container = textarea.value.closest(".chat-input-container");
-      if (container) {
-        (container as HTMLElement).style.height = "36px";
-      }
+      if (container) (container as HTMLElement).style.height = "36px";
     }
   });
 
   scrollToBottom();
 
-  // 先插入 AI 消息对象，显示思考动画
+
+  // 插入 AI 临时消息
   const aiMessage: Message = reactive({
     id: Date.now() + 1,
     content: "",
-    think: "AI 正在思考", // 初始文字
+    think: "AI 正在思考",
     sender: "ai",
     timestamp: new Date(),
     html: "",
@@ -460,13 +509,12 @@ const sendMessage = async () => {
   messages.value.push(aiMessage);
   scrollToBottom();
 
-  // 思考动画
+  // 思考动画...
   isGenerating.value = true;
   let dotIndex = 0;
   thinkAnimation = setInterval(() => {
     aiMessage.think = "AI 正在思考" + ".".repeat(dotIndex % 4);
     dotIndex++;
-    // 移除强制跟随，用户可在思考阶段自由上滑
   }, 500);
 
   try {
@@ -475,7 +523,7 @@ const sendMessage = async () => {
       prompt: customPrompt.value,
       stream: true,
     });
-    clearInterval(thinkAnimation); // 停止思考动画
+    clearInterval(thinkAnimation);
 
     const answerRaw = response?.answer || response?.data?.answer || response;
     let thinkText = "";
@@ -487,12 +535,39 @@ const sendMessage = async () => {
     } else {
       answerText = JSON.stringify(answerRaw);
     }
-
-    // 输出真实思考区文字
     aiMessage.think = thinkText;
 
-    // 逐字显示回答内容
-    // 流式逐字：同时更新 html (简单处理：整体重渲)
+    // ✅ 保存用户消息到数据库
+    try {
+      const saved = await addchat({
+        userId: props.userId,
+        sessionId: props.sessionId,
+        role: "user",
+        content: question,
+      });
+      // 用数据库返回的 id 替换临时 id
+      if (saved?.data?.id) {
+        userMessage.id = saved.data.id;
+      }
+    } catch (err) {
+      console.error("保存用户消息失败:", err);
+    }
+    // 保存 AI 消息到数据库
+    try {
+      const savedAI = await addchat({
+        userId: props.userId,
+        sessionId: props.sessionId,
+        role: "ai",
+        content: answerText,
+      });
+      if (savedAI?.data?.id) {
+        aiMessage.id = savedAI.data.id;
+      }
+    } catch (err) {
+      console.error("保存 AI 消息失败:", err);
+    }
+
+    // 流式显示 AI 回复
     let answerIndex = 0;
     answerInterval = setInterval(() => {
       if (answerIndex >= answerText.length) {
@@ -506,7 +581,7 @@ const sendMessage = async () => {
       aiMessage.content += answerText[answerIndex];
       aiMessage.html = safeRender(aiMessage.content);
       answerIndex++;
-      if (shouldAutoScroll) immediateScrollToBottom(); // 仅在仍位于底部时自动跟随
+      if (shouldAutoScroll) immediateScrollToBottom();
       highlightBlocks();
       const el2 = getScrollEl();
       if (el2 && !isAtBottom(el2)) {
@@ -519,7 +594,6 @@ const sendMessage = async () => {
     context.value.push(`A: ${answerText}`);
   } catch (error: any) {
     clearInterval(thinkAnimation);
-    console.error("调用聊天接口失败:", error);
     aiMessage.think = "";
     aiMessage.content = "AI 回复失败，请稍后再试。错误: " + error.message;
     aiMessage.html = safeRender(aiMessage.content);
@@ -527,6 +601,7 @@ const sendMessage = async () => {
     isGenerating.value = false;
   }
 };
+
 
 // markdown 渲染（基本防护）
 const safeRender = (text: string): string => {

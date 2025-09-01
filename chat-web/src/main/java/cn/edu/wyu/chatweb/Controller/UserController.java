@@ -9,10 +9,10 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/user")
 @Slf4j
-public class UserCtroller {
+public class UserController {
     private final UserService userService;
 
-    public UserCtroller(UserService userService) {
+    public UserController(UserService userService) {
         this.userService = userService;
     }
 

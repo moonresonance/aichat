@@ -1,11 +1,13 @@
 package cn.edu.wyu.chatweb.entity;
 
+
 import lombok.Data;
 
 @Data
 public class Session {
-    private int id;
+    private Integer id;
     private String name;
-    private int userId;
+    private Integer userId;
+
 }
 

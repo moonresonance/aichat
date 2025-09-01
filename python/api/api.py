@@ -29,7 +29,6 @@ app.add_middleware(
     allow_methods=["*"],  # 允许所有方法，包括 OPTIONS, POST, GET 等
     allow_headers=["*"],  # 允许所有请求头
 )
-
 @app.post("/chatbyqwen3")
 async def chat(request: ChatRequest):
     question=request.question
@@ -38,7 +37,6 @@ async def chat(request: ChatRequest):
         prompt="你是个智能助手"
     answer=model.load_qwe3(ip,prompt,question)
     return {"answer":answer}
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -13,7 +13,7 @@ public class SessionServiceImp extends ServiceImpl<SessionMapper, Session> imple
 
     @Override
     public List<Session> getSessionsByUserId(int userId) {
-        QueryWrapper<Session> queryWrapper = new QueryWrapper<Session>();
+        QueryWrapper<Session> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("user_id", userId);
         return baseMapper.selectList(queryWrapper);
     }

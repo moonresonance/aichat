@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch, onBeforeUnmount } from "vue";
+import {onMounted, ref, computed, watch, onBeforeUnmount} from "vue";
 import { getSessionList, createSession, deleteSession } from "@/api/session";
+import {addchat,deletechat} from "@/api/chatapi";
 import { useUserStore } from "@/stores/user";
 import router from "@/router";
 
@@ -105,39 +106,69 @@ const handleClick = (item: SessionItem) => {
 
 const handleNewChat = async () => {
   if (!userId.value) return;
+
   const payload = {
     name: `新对话 ${menuList.value.length + 1}`,
     userId: userId.value,
   };
+
   try {
-    await createSession(payload);
+    // 创建会话
+    const res: any = await createSession(payload);
     await fetchMenuList();
+
     if (menuList.value.length > 0) {
       const last = menuList.value[menuList.value.length - 1].id;
       selectedId.value = last;
       emit("selectSession", last);
+
+      // ✅ 插入 AI 开场白
+      const aiMessageContent = "欢迎使用幻想AI，很高兴为你服务！";
+      try {
+        const savedAI = await addchat({
+          userId: userId.value,
+          sessionId: last,
+          role: "ai",
+          content: aiMessageContent,
+        });
+      } catch (err) {
+        console.error("保存开场白失败:", err);
+      }
     }
   } catch (err) {
     console.error("创建会话失败", err);
   }
 };
 
+
 const handleDelete = async (id: number) => {
   if (!confirm("确定要删除该会话吗？此操作不可恢复。")) return;
+
   try {
+    // 先删除该会话下的所有聊天内容
+    await deletechat({ session_id: id });
+    // 再删除会话本身
     await deleteSession({ id });
+    // 更新前端会话列表
     menuList.value = menuList.value.filter((i) => i.id !== id);
+    // 如果当前选中的是被删除的会话，切换到下一个
     if (selectedId.value === id) {
       const next = menuList.value[0]?.id ?? null;
       selectedId.value = next;
       if (next != null) emit("selectSession", next);
-    }
+
+
     emit("deletedSession", id);
-    if (menuList.value.length === 0) errorMsg.value = "暂无会话";
-  } catch (err) {
+
+    if (menuList.value.length === 0) {
+      errorMsg.value = "暂无会话";
+    }
+  }
+  }catch (err){
     console.error("删除失败", err);
   }
 };
+
 
 // 点击外部关闭
 const onDocClick = (e: MouseEvent) => {

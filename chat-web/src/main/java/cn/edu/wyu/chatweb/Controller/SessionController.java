@@ -12,7 +12,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/session")
 @Slf4j
-public class SessionCtroller {
+public class SessionController {
     @Autowired
     private SessionService sessionService;
 
