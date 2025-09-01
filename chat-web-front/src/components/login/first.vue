@@ -137,7 +137,7 @@ onMounted(() => {
           <p>{{ isLoginMode ? '请输入您的账号信息' : '注册新账号开始您的旅程' }}</p>
         </div>
 
-        <el-form ref="formRef" :model="formData" :rules="rules" class="form-body">
+        <el-form ref="formRef" :model="formData" :rules="rules" class="form-body" @keydown.enter="handleSubmit">
           <!-- 统一表单项样式 -->
           <el-form-item label="用户名" prop="username" class="uniform-form-item">
             <el-input v-model="formData.name" placeholder="请输入用户名" :prefix-icon="User" />

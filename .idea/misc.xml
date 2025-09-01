@@ -11,5 +11,8 @@
       </list>
     </option>
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_22_PREVIEW" project-jdk-name="22" project-jdk-type="JavaSDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11 (aichat)" project-jdk-type="Python SDK" />
+  <component name="PythonCompatibilityInspectionAdvertiser">
+    <option name="version" value="3" />
+  </component>
 </project>
