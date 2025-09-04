@@ -33,8 +33,10 @@ app.add_middleware(
 async def chat(request: ChatRequest):
     question=request.question
     prompt=request.prompt
+    question = {"role": "user", "content": question}
     if prompt is None:
         prompt="你是个智能助手"
+        prompt={"role":"system","content":prompt}
     answer=model.load_qwe3(ip,prompt,question)
     return {"answer":answer}
 

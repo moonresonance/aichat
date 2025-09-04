@@ -45,10 +45,7 @@ class LocalModel:
     def load_qwe3(self, ip, prompt, message):
         payload = {
             "model": "qwen3",
-            "messages": [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": message}
-            ],
+            "messages": [{prompt},{message}],
             "max_tokens": 20000,
         }
         resp = requests.post(ip, json=payload, timeout=200)
