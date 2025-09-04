@@ -402,6 +402,8 @@ const regenerate = async (aiMsg: Message) => {
   try {
     // 调用 AI 接口
     const resp: any = await chatbyqwen3({
+      userId: props.userId,
+      sessionId:props.sessionId,
       question: prevUser.content,
       prompt: customPrompt.value,
       stream: true,
@@ -519,6 +521,8 @@ const sendMessage = async () => {
 
   try {
     const response: any = await chatbyqwen3({
+      userId:props.userId,
+      sessionId:props.sessionId,
       question,
       prompt: customPrompt.value,
       stream: true,

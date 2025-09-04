@@ -42,10 +42,10 @@ class LocalModel:
         )
         return llm
 
-    def load_qwe3(self, ip, prompt, message):
+    def load_qwe3(self, ip, message):
         payload = {
             "model": "qwen3",
-            "messages": [{prompt},{message}],
+            "messages": message,
             "max_tokens": 20000,
         }
         resp = requests.post(ip, json=payload, timeout=200)
