@@ -7,7 +7,9 @@ from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from python.local_model import LocalModel
 import mysql.connector  # 用于 MySQL 数据库访问
-from mysql.connector import Error
+from mysql.connector import Error, pooling
+
+from python.mysql import MySQLPool
 
 # 加载环境变量
 load_dotenv()
@@ -15,14 +17,8 @@ ip = os.getenv("IP")
 path = os.getenv("MODEL_PATH")
 model = LocalModel(path, "cpu")
 
-# 配置 MySQL 数据库连接
-DATABASE_CONFIG = {
-    'host': os.getenv("DB_HOST", "localhost"),
-    'user': os.getenv("DB_USER", "root"),
-    'password': os.getenv("DB_PASSWORD", "20031224"),
-    'database': os.getenv("DB_NAME", "aichat"),
-    'port': os.getenv("DB_PORT", 3306)  # 默认端口
-}
+# 初始化数据库连接池
+db = MySQLPool()
 
 # 设置日志
 logging.basicConfig(level=logging.INFO)
@@ -49,25 +45,12 @@ app.add_middleware(
 )
 
 
-# 获取数据库中的最后五条聊天记录作为上下文
-def get_last_five_chats(user_id: str, session_id: str):
-    try:
-        conn = mysql.connector.connect(**DATABASE_CONFIG)
-        cursor = conn.cursor(dictionary=True)  # 使用字典形式返回查询结果
-        query = """
-        SELECT role, content FROM chat
-        WHERE user_id = %s AND session_id = %s ORDER BY id DESC LIMIT 10
-        """
-        cursor.execute(query, (user_id, session_id))
-        rows = cursor.fetchall()
-        conn.close()
 
-        # 将查询结果构造成一个上下文消息列表
-        context = [{"role": row["role"], "content": row["content"]} for row in rows]
-
-        return context
-    except Error as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+@app.get("/addpropmt")
+async def root(user_id: int, session_id: int, prompt: str):
+    # 向数据库插入 prompt
+    db.add_propmt(user_id, session_id, prompt)
+    return {"message": "Prompt added successfully"}
 
 
 # 聊天接口
@@ -78,7 +61,9 @@ async def chat(request: ChatRequest):
     question = request.question
     prompt = request.prompt
     # 获取最近五条聊天记录作为上下文
-    context = get_last_five_chats(user_id, session_id)
+    context = db.get_last_five_chats(user_id, session_id)
+    # 从数据库获取用户的 prompt
+    prompt = db.get_propmt(user_id, session_id)
     # 创建用户消息
     user_message = {"role": "user", "content": question}
     # 将 prompt 加入到上下文
