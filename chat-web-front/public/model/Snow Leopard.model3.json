@@ -1,0 +1,28 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "Snow Leopard.moc3",
+		"Textures": [
+			"Snow Leopard.8192/texture_00.png"
+		],
+		"Physics": "Snow Leopard.physics3.json",
+		"DisplayInfo": "Snow Leopard.cdi3.json"
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": [
+				"ParamEyeLOpen",
+				"ParamEyeROpen"
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": [
+				"ParamMouthOpenY"
+			]
+		}
+	]
+}

@@ -62,8 +62,6 @@ async def chat(request: ChatRequest):
     prompt = request.prompt
     # 获取最近五条聊天记录作为上下文
     context = db.get_last_five_chats(user_id, session_id)
-    # 从数据库获取用户的 prompt
-    prompt = db.get_propmt(user_id, session_id)
     # 创建用户消息
     user_message = {"role": "user", "content": question}
     # 将 prompt 加入到上下文

@@ -16,16 +16,20 @@
     "axios": "^1.11.0",
     "element-plus": "^2.10.7",
     "highlight.js": "^11.11.1",
+    "live2d-render": "^0.0.6",
+    "live2d-widget": "^3.1.4",
     "marked": "^12.0.2",
     "pinia": "^3.0.3",
     "pinia-plugin-persistedstate": "^4.5.0",
     "vue": "^3.5.18",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "vue3-live2d": "^0.0.1"
   },
   "devDependencies": {
     "@types/es6-promise": "^3.3.2",
     "@types/node": "^24.3.0",
     "@vitejs/plugin-vue": "^6.0.1",
+    "less": "^4.4.2",
     "vite": "^7.0.6",
     "vite-plugin-vue-devtools": "^8.0.0"
   }

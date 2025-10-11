@@ -1,15 +1,15 @@
+<!-- Home.vue -->
 <script setup lang="ts">
 import { ref } from "vue";
-import MenuComp from "./compentent/menu.vue";
-import ChatBox from "./compentent/chatbox.vue";
+import MenuComp from "@/components/home/component/menu.vue";
+import ChatBox from "@/components/home/component/chatbox.vue";
 import { useUserStore } from "@/stores/user";
+import Live2d from "@/components/home/component/live2d.vue";
 
 const userStore = useUserStore();
 const userId = userStore.userState?.id || null;
-
 const selectedSessionId = ref<number | null>(null);
 
-// 父组件接收子组件 emit
 const handleSelectSession = (id: number) => {
   console.log("父组件收到 sessionId:", id);
   selectedSessionId.value = id;
@@ -27,14 +27,15 @@ const handleDeletedSession = (id: number) => {
   <div class="home">
     <div class="menu">
       <MenuComp
-        :userId="userId"
-        @selectSession="handleSelectSession"
-        @deletedSession="handleDeletedSession"
+          :userId="userId"
+          @selectSession="handleSelectSession"
+          @deletedSession="handleDeletedSession"
       />
     </div>
     <div class="chat-box">
       <ChatBox :sessionId="selectedSessionId" :userId="userId" />
     </div>
+
   </div>
 </template>
 
@@ -42,49 +43,57 @@ const handleDeletedSession = (id: number) => {
 .home {
   display: flex;
   height: 100vh;
-  background: linear-gradient(180deg, var(--bg-start), var(--bg-end));
+  background: #e7ebf0;
   color: var(--text-primary);
+  position: relative;
+  overflow: hidden;
 }
+
 .menu {
-  width: 320px;
+  width: 360px;
   flex-shrink: 0;
-  border-right: 1px solid var(--sidebar-border);
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  background: #ffffff;
   transition: width 0.3s ease;
 }
+
+.chat-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #e7ebf0;
+}
+
+/* 修复 Live2D 容器样式 */
+.live2d-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 300px;
+  height: 300px;
+  z-index: 9999;
+  pointer-events: none;
+  border: 1px solid #ccc; /* 临时边框用于调试 */
+}
+
+/* 确保在移动端也能显示 */
 @media (max-width: 768px) {
   .menu {
     width: 100%;
     position: absolute;
     z-index: 10;
-    /* Add logic to hide/show menu on mobile */
+  }
+
+  .live2d-container {
+    width: 200px;
+    height: 200px;
+    bottom: 10px;
+    right: 10px;
   }
 }
-.chat-box {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* Prevent content from overflowing */
-}
 
-/* === Telegram-inspired layout container styling overrides === */
-.home {
-  background: #e7ebf0;
-}
-
-.menu {
-  width: 360px;
-  border-right: 1px solid rgba(0,0,0,.06);
-  background: #ffffff;
-}
-
-.chat-box {
-  background: #e7ebf0;
-}
-
-
-/* === Telegram-inspired Dark Theme & Extra Elements === */
-
-/* 深色模式整体 */
+/* 深色主题 */
 .dark .home,
 .dark .chat-box {
   background: #0e1621;
@@ -92,91 +101,6 @@ const handleDeletedSession = (id: number) => {
 
 .dark .menu {
   background: #17212b;
-  border-right: 1px solid rgba(255,255,255,.06);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
-
-.dark .menu-item {
-  color: #e9edef;
-}
-
-.dark .menu-item:hover {
-  background: rgba(255,255,255,0.04);
-}
-
-.dark .menu-item.selected {
-  background: #2b5278;
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
-.dark .menu-item-name {
-  color: #fff;
-}
-
-.dark .menu-item-detail {
-  color: #aebac1;
-}
-
-.dark .message-item.user .message-content {
-  background: #2b5278;
-  color: #fff;
-}
-
-.dark .message-item.ai .message-content {
-  background: #182533;
-  color: #fff;
-}
-
-.dark .message-meta,
-.dark .message-time {
-  color: #8696a0;
-}
-
-/* === 头像 === */
-.message-item {
-  display: flex;
-  align-items: flex-end;
-}
-
-.message-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  margin-right: 8px;
-  flex-shrink: 0;
-  background: #ccc;
-  overflow: hidden;
-}
-
-.message-item.user .message-avatar {
-  display: none; /* 我方消息一般不显示头像 */
-}
-
-/* === 已读双勾 === */
-.message-status {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 4px;
-  font-size: 12px;
-  color: #34b7f1;
-}
-
-.message-status .check {
-  width: 14px;
-  height: 14px;
-  display: inline-block;
-  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2334b7f1"><path d="M5.5 11.5l-3-3 1.06-1.06L5.5 9.38l6.94-6.94L13.5 3.5z"/><path d="M9.5 11.5l-3-3 1.06-1.06L9.5 9.38l6.94-6.94L17.5 3.5z"/></svg>') no-repeat center;
-  background-size: contain;
-}
-
-/* === 未读徽标 === */
-.unread-badge {
-  background: #2a9df4;
-  color: #fff;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 2px 6px;
-  margin-left: auto;
-}
-
 </style>
