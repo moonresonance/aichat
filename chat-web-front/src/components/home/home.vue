@@ -4,7 +4,6 @@ import { ref } from "vue";
 import MenuComp from "@/components/home/component/menu.vue";
 import ChatBox from "@/components/home/component/chatbox.vue";
 import { useUserStore } from "@/stores/user";
-import Live2d from "@/components/home/component/live2d.vue";
 
 const userStore = useUserStore();
 const userId = userStore.userState?.id || null;
@@ -35,7 +34,6 @@ const handleDeletedSession = (id: number) => {
     <div class="chat-box">
       <ChatBox :sessionId="selectedSessionId" :userId="userId" />
     </div>
-
   </div>
 </template>
 

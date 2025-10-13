@@ -5,6 +5,7 @@ import { ArrowRight, User, Lock } from '@element-plus/icons-vue';
 import {login,register} from "@/api/userapi.js";
 import { useRouter } from 'vue-router';
 import {useUserStore} from "@/stores/user.js";
+import Live2d from "@/components/home/component/live2d.vue";
 
 const userStore=useUserStore();
 const router = useRouter();

@@ -2,10 +2,6 @@
   <div class="chat-wrapper">
     <!-- 设置按钮 & 文本区 -->
     <div class="chat-settings">
-      <!-- 设置按钮 -->
-      <button @click="showSettings = true" class="settings-btn">
-        ⚙️ 设置
-      </button>
 
       <!-- 弹窗 -->
       <div v-if="showSettings" class="settings-modal" @click.self="showSettings = false">
@@ -103,29 +99,31 @@
     </div>
 
     <!-- 回到底部按钮 -->
-    <button
-        class="scroll-bottom-btn"
-        :class="{ show: showScrollToBottom }"
-        @click="handleScrollToBottom"
-        aria-label="回到底部"
-    >
-      <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          width="24"
-          height="24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-      >
-        <path d="M6 8l6 6 6-6" />
-        <path d="M6 4l6 6 6-6" />
-        <line x1="4" y1="20" x2="20" y2="20" />
-      </svg>
-    </button>
+<!--    <button-->
+<!--        class="scroll-bottom-btn"-->
+<!--        :class="{ show: showScrollToBottom }"-->
+<!--        @click="handleScrollToBottom"-->
+<!--        aria-label="回到底部"-->
+<!--    >-->
+<!--      <svg-->
+<!--          xmlns="http://www.w3.org/2000/svg"-->
+<!--          viewBox="0 0 24 24"-->
+<!--          width="24"-->
+<!--          height="24"-->
+<!--          fill="none"-->
+<!--          stroke="currentColor"-->
+<!--          stroke-width="2"-->
+<!--          stroke-linecap="round"-->
+<!--          stroke-linejoin="round"-->
+<!--      >-->
+<!--        <path d="M6 8l6 6 6-6" />-->
+<!--        <path d="M6 4l6 6 6-6" />-->
+<!--        <line x1="4" y1="20" x2="20" y2="20" />-->
+<!--      </svg>-->
+<!--    </button>-->
+    <div class="live2d-panel" ref="live2dPanel">
     <live2d ref="live2dRef" />
+    </div>
   </div>
 
 </template>
@@ -772,7 +770,7 @@ onUnmounted(() => {
   padding-left: 20px;
 }
 .chat-input-area {
-  padding: 10px 20px 40px 20px;
+  padding:10px 5px 20px;
   background-color: transparent;
   max-width: 100%;
   width: 100%;
@@ -794,7 +792,8 @@ onUnmounted(() => {
   height: 36px;
   min-height: 36px;
   max-height: 200px;
-  width: 800px;
+  width: 700px;
+  right: 40px;
   margin: 0 auto;
 }
 .chat-input-container:focus-within {
@@ -834,7 +833,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   transition: background-color 0.2s, opacity 0.2s;
   position: absolute;
-  left: calc(50% + 410px);
+  left: calc(50% + 320px);
   top: 10px;
 }
 .send-button:disabled {
@@ -854,7 +853,7 @@ onUnmounted(() => {
 /* 回到底部按钮样式 */
 .scroll-bottom-btn {
   position: fixed;
-  right: 28px;
+  right: 5%;
   bottom: 120px; /* 避开输入框 */
   width: 44px;
   height: 44px;
@@ -1120,6 +1119,31 @@ onUnmounted(() => {
   background: var(--accent-color);
   color: #fff;
   cursor: pointer;
+}
+.live2d-panel {
+  position: fixed;
+  bottom: 80px;        /* 高度略高于发送按钮 */
+  right: 20px;         /* 保持右侧间距 */
+  width: 180px;        /* 默认宽度 */
+  height: auto;
+  aspect-ratio: 9 / 16;
+  z-index: 150;
+  pointer-events: none;
+  transition: transform 0.3s ease, width 0.3s ease;
+}
+
+.live2d-panel:hover {
+  pointer-events: auto;
+  transform: scale(1.05);
+}
+@media (max-width: 1024px) {
+  .live2d-panel { width: 140px; bottom: 70px; }
+}
+@media (max-width: 768px) {
+  .live2d-panel { width: 120px; bottom: 60px; }
+}
+@media (max-width: 480px) {
+  .live2d-panel { width: 100px; bottom: 50px; right: 10px; }
 }
 
 </style>
