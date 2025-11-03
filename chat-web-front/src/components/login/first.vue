@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, watchEffect, onMounted } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { ElForm, ElFormItem, ElInput, ElButton, ElMessage, ElCard } from 'element-plus';
 import { ArrowRight, User, Lock } from '@element-plus/icons-vue';
 import {login,register} from "@/api/userapi.js";
@@ -30,20 +30,7 @@ const rules = reactive({
   ]
 });
 
-const isDarkMode = ref(false);
 const formRef = ref(null);
-
-watchEffect(() => {
-  const savedMode = localStorage.getItem('darkMode');
-  isDarkMode.value = savedMode !== null ? savedMode === 'true' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-  document.documentElement.classList.toggle('dark', isDarkMode.value);
-});
-
-const toggleDarkMode = () => {
-  isDarkMode.value = !isDarkMode.value;
-  localStorage.setItem('darkMode', isDarkMode.value);
-  document.documentElement.classList.toggle('dark', isDarkMode.value);
-};
 
 const toggleMode = () => {
   isLoginMode.value = !isLoginMode.value;
@@ -235,6 +222,9 @@ onMounted(() => {
   background: linear-gradient(135deg, #6366f1, #ec4899, #06b6d4, #8b5cf6);
   background-size: 400% 400%;
   animation: borderFlow 6s linear infinite;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask:
       linear-gradient(#000 0 0) content-box,
       linear-gradient(#000 0 0);

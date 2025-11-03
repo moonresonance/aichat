@@ -8,6 +8,7 @@ import * as ElementPlusIconsVue from "@element-plus/icons-vue"; // Move import h
 import router from "./router";
 import { createPinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
+import { useThemeStore } from "./stores/theme";
 
 const pinia = createPinia();
 const app = createApp(App);
@@ -16,13 +17,8 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component);
 }
 
-// apply persisted dark mode preference
-try {
-  const dm = localStorage.getItem("darkMode");
-  if (dm === "1") document.documentElement.classList.add("dark");
-} catch (e) {}
-
 pinia.use(piniaPluginPersistedstate);
+useThemeStore(pinia);
 app.use(router);
 app.use(ElementPlus);
 app.use(pinia);

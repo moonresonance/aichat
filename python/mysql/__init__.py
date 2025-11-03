@@ -4,7 +4,7 @@ from mysql.connector import pooling, Error
 
 
 class MySQLPool:
-    def __init__(self, host="localhost", user="root", password="20031224", database="aichat", pool_name="mysql_pool", pool_size=5):
+    def __init__(self, host="localhost", user="root", password="20031224", database="chat", pool_name="mysql_pool", pool_size=5):
         self.host = host
         self.user = user
         self.password = password

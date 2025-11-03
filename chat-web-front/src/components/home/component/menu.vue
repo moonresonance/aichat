@@ -4,6 +4,7 @@ import { getSessionList, createSession, deleteSession } from "@/api/session";
 import {addchat,deletechat} from "@/api/chatapi";
 import { useUserStore } from "@/stores/user";
 import router from "@/router";
+import ThemeToggle from "@/components/common/ThemeToggle.vue";
 
 interface SessionItem {
   id: number;
@@ -26,37 +27,6 @@ const emit = defineEmits<{
   (e: "selectSession", id: number): void;
   (e: "deletedSession", id: number): void;
 }>();
-
-// ---------- 主题 ----------
-const isDark = ref(false);
-const applyDark = (val: boolean) => {
-  const root = document.documentElement;
-  if (val) {
-    root.classList.add("dark");
-    root.classList.remove("light");
-  } else {
-    root.classList.add("light");
-    root.classList.remove("dark");
-  }
-  isDark.value = val;
-  try {
-    localStorage.setItem("darkMode", val ? "1" : "0");
-  } catch {}
-};
-const initDark = () => {
-  try {
-    const saved = localStorage.getItem("darkMode");
-    if (saved === "1" || saved === "0") {
-      applyDark(saved === "1");
-    } else {
-      // 默认浅色，避免系统深色造成页面过暗
-      applyDark(false);
-    }
-  } catch {
-    applyDark(false);
-  }
-};
-const toggleDark = () => applyDark(!isDark.value);
 
 // ---------- 用户 ----------
 const userId = computed(() => userStore.userState?.id ?? 0);
@@ -145,27 +115,41 @@ const handleDelete = async (id: number) => {
   if (!confirm("确定要删除该会话吗？此操作不可恢复。")) return;
 
   try {
-    // 先删除该会话下的所有聊天内容
-    await deletechat({ session_id: id });
+    // 先删除该会话下的所有聊天记录
+    try {
+      const deleteRes = await deletechat({ session_id: id });
+      console.log("删除聊天记录结果:", deleteRes);
+    } catch (err) {
+      console.warn("删除聊天记录时出错:", err);
+      // 继续删除会话，不中断流程
+    }
+
     // 再删除会话本身
-    await deleteSession({ id });
-    // 更新前端会话列表
+    const sessionRes = await deleteSession({ id });
+    console.log("删除会话结果:", sessionRes);
+
+    // 从列表中移除
     menuList.value = menuList.value.filter((i) => i.id !== id);
-    // 如果当前选中的是被删除的会话，切换到下一个
+
+    // 如果删除的是当前选中的会话，切换到下一个
     if (selectedId.value === id) {
       const next = menuList.value[0]?.id ?? null;
       selectedId.value = next;
-      if (next != null) emit("selectSession", next);
-
+      if (next != null) {
+        emit("selectSession", next);
+      }
+    }
 
     emit("deletedSession", id);
 
     if (menuList.value.length === 0) {
       errorMsg.value = "暂无会话";
     }
-  }
-  }catch (err){
-    console.error("删除失败", err);
+
+    console.log("删除会话成功");
+  } catch (err) {
+    console.error("删除会话失败:", err);
+    alert("删除会话失败，请重试");
   }
 };
 
@@ -260,9 +244,6 @@ watch(
   { immediate: true }
 );
 
-onMounted(() => {
-  initDark();
-});
 </script>
 
 <template>
@@ -367,6 +348,8 @@ onMounted(() => {
 
     <!-- Footer -->
     <div class="menu-footer">
+      <ThemeToggle dense />
+
       <!-- 用户菜单 -->
       <div class="user-menu-container">
         <button
@@ -468,71 +451,142 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 主题切换（线条太阳/月亮） -->
-      <button
-        @click="toggleDark"
-        class="icon-btn"
-        :title="isDark ? '切换为浅色' : '切换为深色'"
-        :aria-label="isDark ? '切换为浅色' : '切换为深色'"
-      >
-        <svg
-          v-if="isDark"
-          class="icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <!-- Sun -->
-          <circle cx="12" cy="12" r="4"></circle>
-          <line x1="12" y1="1" x2="12" y2="3"></line>
-          <line x1="12" y1="21" x2="12" y2="23"></line>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-          <line x1="1" y1="12" x2="3" y2="12"></line>
-          <line x1="21" y1="12" x2="23" y2="12"></line>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
-        <svg
-          v-else
-          class="icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <!-- Moon -->
-          <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
-        </svg>
-      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .menu-container {
-  background-color: var(--sidebar-bg);
-  color: var(--sidebar-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans CJK SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
+  background: transparent;
   border-right: 1px solid var(--sidebar-border);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  backdrop-filter: blur(50px) saturate(200%) brightness(105%);
+  -webkit-backdrop-filter: blur(50px) saturate(200%) brightness(105%);
+  transition: background 0.3s ease, border-color 0.3s ease;
+  animation: sidebarSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+[data-theme="dark"] .menu-container {
+  backdrop-filter: blur(60px) saturate(220%) contrast(110%);
+  -webkit-backdrop-filter: blur(60px) saturate(220%) contrast(110%);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* 星空背景 */
+.menu-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 15% 25%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 85% 15%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(2px 2px at 45% 65%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1px 1px at 25% 85%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 65% 45%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 92% 72%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(2px 2px at 8% 58%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 48% 18%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 72% 88%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 35% 42%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 18% 62%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 58% 8%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(2px 2px at 78% 38%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 12% 48%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 95% 55%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 38% 78%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 5% 22%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(2px 2px at 68% 92%, rgba(255, 255, 255, 0.95), transparent);
+  background-size: 280px 280px, 320px 320px, 240px 240px, 360px 360px, 300px 300px,
+                   260px 260px, 340px 340px, 220px 220px, 380px 380px, 290px 290px,
+                   310px 310px, 270px 270px, 330px 330px, 250px 250px, 350px 350px,
+                   230px 230px, 400px 400px, 210px 210px;
+  background-repeat: repeat;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+[data-theme="dark"] .menu-container::before {
+  opacity: 1;
+  animation: starTwinkle 4s ease-in-out infinite;
+}
+
+/* 添加第二层闪烁星星 */
+.menu-container::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 22% 38%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 78% 62%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 52% 78%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(2px 2px at 12% 12%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1px 1px at 88% 28%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 42% 92%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 62% 32%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(2px 2px at 28% 68%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 82% 8%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 8% 82%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 55% 52%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 32% 15%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(2px 2px at 95% 45%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1px 1px at 2% 35%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 75% 75%, rgba(255, 255, 255, 0.85), transparent);
+  background-size: 310px 310px, 270px 270px, 350px 350px, 230px 230px, 330px 330px, 
+                   250px 250px, 390px 390px, 215px 215px, 295px 295px, 370px 370px,
+                   240px 240px, 325px 325px, 265px 265px, 410px 410px, 200px 200px;
+  background-repeat: repeat;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+[data-theme="dark"] .menu-container::after {
+  opacity: 1;
+  animation: starTwinkle 3.5s ease-in-out infinite 0.8s;
+}
+
+@keyframes starTwinkle {
+  0%, 100% { 
+    opacity: 0.85;
+    filter: brightness(1.1);
+  }
+  50% { 
+    opacity: 1;
+    filter: brightness(1.35);
+  }
+}
+
+.menu-container > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes sidebarSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .menu-header {
   display: flex;
   align-items: center;
-  padding: 10px;
-  gap: 8px;
+  gap: 10px;
+  padding: 18px 18px 14px;
   border-bottom: 1px solid var(--sidebar-border);
+  background: transparent;
 }
 
 .search-bar {
@@ -540,9 +594,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  background-color: var(--sidebar-search-bg);
-  border-radius: 20px;
-  padding: 0 10px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: var(--sidebar-search-bg);
+  border: 1px solid rgba(42, 157, 244, 0.07);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.6);
 }
 
 .icon {
@@ -552,156 +608,297 @@ onMounted(() => {
 }
 
 .search-input {
+  flex: 1;
   border: none;
   background: transparent;
   color: var(--sidebar-text);
-  padding: 8px 5px;
-  width: 100%;
-  outline: none;
   font-size: 14px;
+  outline: none;
 }
+
 .search-input::placeholder {
   color: var(--muted);
 }
 
 .icon-btn {
-  background: none;
-  border: 1px solid var(--sidebar-border);
+  width: 40px;
+  height: 40px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: var(--sidebar-elev);
   color: var(--muted);
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, border 0.2s ease;
+  box-shadow: 0 4px 12px rgba(42, 157, 244, 0.08);
+  animation: buttonBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+@keyframes buttonBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(8px);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .icon-btn:hover {
-  background-color: var(--sidebar-hover);
-  color: var(--text-primary);
-  border-color: var(--sidebar-hover);
+  color: var(--accent-color);
+  border-color: rgba(42, 157, 244, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(42, 157, 244, 0.14);
+}
+
+.icon-btn:hover svg {
+  animation: iconSpin 0.6s ease-in-out;
+}
+
+@keyframes iconSpin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); }
 }
 
 .chat-list {
   flex: 1;
+  padding: 14px 18px 18px;
   overflow-y: auto;
-  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.chat-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-list::-webkit-scrollbar-thumb {
+  background: rgba(42, 157, 244, 0.25);
+  border-radius: 999px;
 }
 
 .menu-status {
   text-align: center;
-  padding: 16px;
+  padding: 24px 0;
   color: var(--muted);
+  font-size: 14px;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  padding: 10px 15px;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: transparent;
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background 0.2s ease, border 0.2s ease, transform 0.18s ease;
   position: relative;
+  animation: itemFadeInLeft 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation-fill-mode: both;
 }
+
+/* 为不同的菜单项设置不同的延迟 */
+.menu-item:nth-child(1) { animation-delay: 0.05s; }
+.menu-item:nth-child(2) { animation-delay: 0.1s; }
+.menu-item:nth-child(3) { animation-delay: 0.15s; }
+.menu-item:nth-child(4) { animation-delay: 0.2s; }
+.menu-item:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes itemFadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .menu-item:hover {
   background: var(--sidebar-hover);
 }
+
+.menu-item:hover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 50%, rgba(42, 157, 244, 0.1), transparent);
+  animation: hoverGlow 0.6s ease-out;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes hoverGlow {
+  from {
+    opacity: 1;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
 .menu-item.selected {
   background: var(--sidebar-selected);
+  border: 1px solid rgba(42, 157, 244, 0.28);
+  box-shadow: 0 8px 24px rgba(42, 157, 244, 0.18);
+  transform: translateY(-1px);
 }
 
 .menu-item-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
+
 .menu-item-name {
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sidebar-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .menu-item-detail {
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
   color: var(--muted);
+}
+
+.menu-item-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-ghost);
+  color: var(--accent-color);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .delete-btn {
-  background: transparent;
-  border: 1px solid var(--sidebar-border);
-  color: var(--muted);
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
-  font-size: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  border: 1px solid rgba(42, 157, 244, 0.06);
+  background: rgba(42, 157, 244, 0.05);
+  color: rgba(42, 157, 244, 0.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s, color 0.2s, background-color 0.2s, border-color 0.2s;
+  transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease, border 0.2s ease;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 10;
+  flex-shrink: 0;
 }
+
 .menu-item:hover .delete-btn {
   opacity: 1;
 }
+
 .delete-btn:hover {
-  background-color: var(--sidebar-hover);
-  color: var(--text-primary);
-  border-color: var(--sidebar-hover);
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b6b, #f05454);
+  border-color: rgba(255, 107, 107, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(240, 84, 84, 0.25);
 }
 
 .menu-footer {
+  padding: 16px 18px;
+  border-top: 1px solid var(--sidebar-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px;
-  border-top: 1px solid var(--sidebar-border);
+  gap: 12px;
+  flex-wrap: wrap;
+  background: transparent;
 }
 
-/* 用户菜单 */
 .user-menu-container {
   position: relative;
   flex: 1;
 }
 
 .user-btn {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  border: 1px solid var(--sidebar-border);
-  border-radius: 8px;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--sidebar-elev);
+  border: 1px solid rgba(42, 157, 244, 0.08);
   color: var(--sidebar-text);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border 0.2s ease;
+  box-shadow: var(--shadow-soft);
   text-align: left;
+  animation: userBtnSlide 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes userBtnSlide {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .user-btn:hover {
-  background-color: var(--sidebar-hover);
-  border-color: var(--sidebar-hover);
+  transform: translateY(-1px);
+  border-color: rgba(42, 157, 244, 0.25);
+  box-shadow: 0 12px 24px rgba(42, 157, 244, 0.15);
 }
 
 .user-avatar {
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background-color: var(--sidebar-selected);
+  background: linear-gradient(135deg, rgba(42, 157, 244, 0.25), rgba(126, 214, 223, 0.45));
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  color: var(--accent);
 }
 
 .user-name {
-  font-weight: 500;
+  flex: 1;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
 }
 
 .dropdown-icon {
   width: 16px;
   height: 16px;
-  flex-shrink: 0;
-  transition: transform 0.2s;
+  transition: transform 0.2s ease;
 }
 
 .user-btn[aria-expanded="true"] .dropdown-icon {
@@ -710,217 +907,85 @@ onMounted(() => {
 
 .user-dropdown {
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + 12px);
   left: 0;
   right: 0;
-  background-color: var(--sidebar-bg);
-  border: 1px solid var(--sidebar-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  margin-bottom: 8px;
+  background: var(--sidebar-elev);
+  border-radius: 18px;
+  border: 1px solid rgba(42, 157, 244, 0.08);
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
   overflow: hidden;
+  animation: dropdownFade 0.18s ease;
+}
+
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dropdown-item {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: transparent;
   border: none;
+  font-size: 14px;
   color: var(--sidebar-text);
   cursor: pointer;
-  transition: background-color 0.2s;
-  text-align: left;
-  font-size: 14px;
+  transition: background 0.18s ease, color 0.18s ease;
 }
 
-.dropdown-item:hover {
-  background-color: var(--sidebar-hover);
-}
-
+.dropdown-item:hover,
 .dropdown-item:focus {
-  background-color: var(--sidebar-hover);
   outline: none;
+  background: var(--sidebar-hover);
 }
 
 .dropdown-item.danger {
-  color: #ef4444;
+  color: #f87171;
 }
 
 .dropdown-item.danger:hover {
-  background-color: #ef4444;
-  color: white;
+  background: rgba(248, 113, 113, 0.12);
+  color: #f43f5e;
 }
 
 .dropdown-divider {
   height: 1px;
-  background-color: var(--sidebar-border);
-  margin: 4px 0;
+  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.08), transparent);
 }
 
-/* === Telegram-inspired sidebar/menu styling overrides === */
-.menu-container {
-  --tg-accent: #2a9df4;
-  --tg-subtle: #f2f5f8;
-  --tg-pressed: #e4eef8;
-  --tg-text: #0f1419;
-  --tg-subtext: #6b7280;
-  background: #ffffff;
-  color: var(--tg-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans CJK SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-}
-
-.menu-header {
-  background: #ffffff;
-  border-bottom: 1px solid rgba(0,0,0,.06);
-  padding: 10px 12px;
-}
-
-.search-bar {
-  background: var(--tg-subtle);
-  border: 1px solid rgba(0,0,0,.06);
-  border-radius: 14px;
-}
-
-.search-input {
-  font-size: 14px;
-}
-
-.icon-btn {
-  border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid rgba(0,0,0,.06);
-}
-
-.chat-list {
-  padding: 6px;
-}
-
-.menu-item {
-  border-radius: 14px;
-  padding: 10px 12px;
-  transition: background .15s ease;
-}
-
-.menu-item:hover {
-  background: var(--tg-subtle);
-}
-
-.menu-item.selected {
-  background: var(--tg-pressed);
-  border: 1px solid rgba(42,157,244,.25);
-}
-
-.menu-item-name {
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--tg-text);
-}
-
-.menu-item-detail {
-  color: var(--tg-subtext);
-  font-size: 12px;
-}
-
-
-/* === Telegram-inspired Dark Theme & Extra Elements === */
-
-/* 深色模式整体 */
-.dark .home,
-.dark .chat-box {
-  background: #0e1621;
-}
-
-.dark .menu {
-  background: #17212b;
-  border-right: 1px solid rgba(255,255,255,.06);
-}
-
-.dark .menu-item {
-  color: #e9edef;
-}
-
-.dark .menu-item:hover {
-  background: rgba(255,255,255,0.04);
-}
-
-.dark .menu-item.selected {
-  background: #2b5278;
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
-.dark .menu-item-name {
-  color: #fff;
-}
-
-.dark .menu-item-detail {
-  color: #aebac1;
-}
-
-.dark .message-item.user .message-content {
-  background: #2b5278;
-  color: #fff;
-}
-
-.dark .message-item.ai .message-content {
-  background: #182533;
-  color: #fff;
-}
-
-.dark .message-meta,
-.dark .message-time {
-  color: #8696a0;
-}
-
-/* === 头像 === */
-.message-item {
-  display: flex;
-  align-items: flex-end;
-}
-
-.message-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  margin-right: 8px;
-  flex-shrink: 0;
-  background: #ccc;
-  overflow: hidden;
-}
-
-.message-item.user .message-avatar {
-  display: none; /* 我方消息一般不显示头像 */
-}
-
-/* === 已读双勾 === */
-.message-status {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 4px;
-  font-size: 12px;
-  color: #34b7f1;
-}
-
-.message-status .check {
-  width: 14px;
-  height: 14px;
-  display: inline-block;
-  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2334b7f1"><path d="M5.5 11.5l-3-3 1.06-1.06L5.5 9.38l6.94-6.94L13.5 3.5z"/><path d="M9.5 11.5l-3-3 1.06-1.06L9.5 9.38l6.94-6.94L17.5 3.5z"/></svg>') no-repeat center;
-  background-size: contain;
-}
-
-/* === 未读徽标 === */
 .unread-badge {
-  background: #2a9df4;
-  color: #fff;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 2px 6px;
   margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .menu-container {
+    border-right: none;
+    border-bottom: 1px solid var(--sidebar-border);
+  }
+
+  .menu-header {
+    padding: 14px;
+  }
+
+  .chat-list {
+    padding: 12px 14px;
+  }
 }
 
 </style>

@@ -1,36 +1,26 @@
 <script setup lang="js">
 
 import * as live2d from 'live2d-render';
-
-import {onMounted,defineExpose} from "vue";
-
+import { onMounted, defineExpose } from "vue";
 
 onMounted(async () => {
   await live2d.initializeLive2D({
-
-    CanvasId:"live2d-container",
-    // live2d 所在区域的背景颜色
+    CanvasId: "live2d-container",
     BackgroundRGBA: [0.0, 0.0, 0.0, 0.0],
-    // live2d 的 model3.json 文件的相对 根目录 的路径
     ResourcesPath: "/model/cat/sdwhite cat free.model3.json",
-
-    // live2d 的大小
-    CanvasSize: {
-      height: 300,
-      width: 180
-    },
-    // 展示工具箱（可以控制 live2d 的展出隐藏，使用特定表情）
+    CanvasSize: { height: 300, width: 180 },
     ShowToolBox: true,
-    // 是否使用 indexDB 进行缓存优化，这样下一次载入就不会再发起网络请求了
     LoadFromCache: true
   });
 
   console.log('finish loading');
 });
 
-const sendMessage = (message) => {
-  live2d.setMessageBox(message);
-}
+// 关闭 Live2D 气泡显示
+const sendMessage = async () => {
+  live2d.setMessageBox("");
+};
+
 defineExpose({
   sendMessage
 });
@@ -56,11 +46,29 @@ defineExpose({
   z-index: 150;
   pointer-events: none;
   transition: width 0.3s ease, transform 0.3s ease;
+  animation: live2dSlideIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes live2dSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(60px) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+  }
 }
 
 #live2d-panel:hover {
   pointer-events: auto;
-  transform: translateY(-50%) scale(1.05);
+  animation: live2dPulse 0.4s ease-out;
+}
+
+@keyframes live2dPulse {
+  0% { transform: translateY(-50%) scale(1); }
+  50% { transform: translateY(-50%) scale(1.08); }
+  100% { transform: translateY(-50%) scale(1.05); }
 }
 
 /* Canvas 填充容器 */
@@ -68,6 +76,16 @@ defineExpose({
   width: 100% !important;
   height: 100% !important;
   display: block;
+}
+
+/* 夜间模式下调整模型亮度 */
+[data-theme="dark"] #live2d-container {
+  filter: brightness(0.85) contrast(0.92) saturate(0.95);
+  transition: filter 0.3s ease;
+  /* 添加背景隔离层，防止星空闪烁影响模型 */
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 8px;
 }
 
 /* 响应式缩放 */
@@ -88,17 +106,36 @@ defineExpose({
   font-family: var(--base-font);
   padding: 10px;
   height: fit-content;
+  width: fit-content;
   border-radius: 0.7em;
   word-break: break-all;
   border-right: 1px solid transparent;
   transform-origin: bottom right;
+  
+  /* 文字淡入动画 */
+  animation: textFadeIn 0.3s ease-out;
+  /* 背景微妙脉冲效果 */
+  box-shadow: 0 4px 15px rgba(255, 149, 188, 0.4);
+  transition: box-shadow 0.3s ease;
+}
+
+/* 文字逐字淡入动画 */
+@keyframes textFadeIn {
+  from {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .live2dMessageBox-content-hidden {
   opacity: 0;
   transform: scale(0.5) translateY(20px);
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-  opacity 0.35s ease-in;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+  opacity 0.6s ease-in;
 }
 
 .live2dMessageBox-content-visible {
@@ -114,7 +151,6 @@ defineExpose({
   50% { transform: scale(1) translateY(-3px); }
   100% { transform: scale(1) translateY(0); }
 }
-
 
 </style>
 
