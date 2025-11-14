@@ -1,0 +1,32 @@
+2025-05-01 21:54:11,820	胡桃_ZH	INFO	{'train': {'log_interval': 100, 'eval_interval': 500, 'seed': 1234, 'epochs': 10, 'learning_rate': 0.0001, 'betas': [0.8, 0.99], 'eps': 1e-09, 'batch_size': 8, 'fp16_run': True, 'lr_decay': 0.999875, 'segment_size': 20480, 'init_lr_ratio': 1, 'warmup_epochs': 0, 'c_mel': 45, 'c_kl': 1.0, 'text_low_lr_rate': 0.4, 'grad_ckpt': False, 'pretrained_s2G': 'GPT_SoVITS/pretrained_models/gsv-v4-pretrained/s2Gv4.pth', 'pretrained_s2D': '', 'if_save_latest': True, 'if_save_every_weights': True, 'save_every_epoch': 10, 'gpu_numbers': '0', 'lora_rank': 32}, 'data': {'max_wav_value': 32768.0, 'sampling_rate': 32000, 'filter_length': 2048, 'hop_length': 640, 'win_length': 2048, 'n_mel_channels': 128, 'mel_fmin': 0.0, 'mel_fmax': None, 'add_blank': True, 'n_speakers': 300, 'cleaned_text': True, 'exp_dir': 'logs/胡桃_ZH'}, 'model': {'inter_channels': 192, 'hidden_channels': 192, 'filter_channels': 768, 'n_heads': 2, 'n_layers': 6, 'kernel_size': 3, 'p_dropout': 0.1, 'resblock': '1', 'resblock_kernel_sizes': [3, 7, 11], 'resblock_dilation_sizes': [[1, 3, 5], [1, 3, 5], [1, 3, 5]], 'upsample_rates': [10, 8, 2, 2, 2], 'upsample_initial_channel': 512, 'upsample_kernel_sizes': [16, 16, 8, 2, 2], 'n_layers_q': 3, 'use_spectral_norm': False, 'gin_channels': 512, 'semantic_frame_rate': '25hz', 'freeze_quantizer': True, 'version': 'v4'}, 's2_ckpt_dir': 'logs/胡桃_ZH', 'content_module': 'cnhubert', 'save_weight_dir': 'SoVITS_weights_v4', 'name': '胡桃_ZH', 'version': 'v4', 'pretrain': None, 'resume_step': None}
+2025-05-01 21:54:21,949	胡桃_ZH	INFO	loaded pretrained GPT_SoVITS/pretrained_models/gsv-v4-pretrained/s2Gv4.pth
+2025-05-01 21:55:20,616	胡桃_ZH	INFO	Train Epoch: 1 [0%]
+2025-05-01 21:55:20,616	胡桃_ZH	INFO	[0.034610260277986526, 0, 9.99875e-05]
+2025-05-01 21:56:06,461	胡桃_ZH	INFO	====> Epoch: 1
+2025-05-01 21:56:16,153	胡桃_ZH	INFO	Train Epoch: 2 [16%]
+2025-05-01 21:56:16,153	胡桃_ZH	INFO	[0.05827437341213226, 100, 9.99750015625e-05]
+2025-05-01 21:56:54,363	胡桃_ZH	INFO	====> Epoch: 2
+2025-05-01 21:57:09,479	胡桃_ZH	INFO	Train Epoch: 3 [33%]
+2025-05-01 21:57:09,480	胡桃_ZH	INFO	[0.05605834722518921, 200, 9.996250468730469e-05]
+2025-05-01 21:57:38,958	胡桃_ZH	INFO	====> Epoch: 3
+2025-05-01 21:58:03,320	胡桃_ZH	INFO	Train Epoch: 4 [49%]
+2025-05-01 21:58:03,321	胡桃_ZH	INFO	[0.13504180312156677, 300, 9.995000937421877e-05]
+2025-05-01 21:58:26,318	胡桃_ZH	INFO	====> Epoch: 4
+2025-05-01 21:58:57,024	胡桃_ZH	INFO	Train Epoch: 5 [65%]
+2025-05-01 21:58:57,025	胡桃_ZH	INFO	[0.01660831831395626, 400, 9.993751562304699e-05]
+2025-05-01 21:59:11,051	胡桃_ZH	INFO	====> Epoch: 5
+2025-05-01 21:59:49,138	胡桃_ZH	INFO	Train Epoch: 6 [81%]
+2025-05-01 21:59:49,138	胡桃_ZH	INFO	[0.04867105185985565, 500, 9.99250234335941e-05]
+2025-05-01 21:59:56,817	胡桃_ZH	INFO	====> Epoch: 6
+2025-05-01 22:00:43,407	胡桃_ZH	INFO	Train Epoch: 7 [98%]
+2025-05-01 22:00:43,412	胡桃_ZH	INFO	[0.09910987317562103, 600, 9.991253280566489e-05]
+2025-05-01 22:00:43,902	胡桃_ZH	INFO	====> Epoch: 7
+2025-05-01 22:01:28,573	胡桃_ZH	INFO	====> Epoch: 8
+2025-05-01 22:01:36,479	胡桃_ZH	INFO	Train Epoch: 9 [14%]
+2025-05-01 22:01:36,485	胡桃_ZH	INFO	[0.023575035855174065, 700, 9.98875562335968e-05]
+2025-05-01 22:02:14,716	胡桃_ZH	INFO	====> Epoch: 9
+2025-05-01 22:02:31,620	胡桃_ZH	INFO	Train Epoch: 10 [30%]
+2025-05-01 22:02:31,621	胡桃_ZH	INFO	[0.028116071596741676, 800, 9.987507028906759e-05]
+2025-05-01 22:03:02,530	胡桃_ZH	INFO	Saving model and optimizer state at iteration 10 to logs/胡桃_ZH/logs_s2_v4_lora_32/G_233333333333.pth
+2025-05-01 22:03:08,167	胡桃_ZH	INFO	saving ckpt 胡桃_ZH_e10:Success.
+2025-05-01 22:03:08,167	胡桃_ZH	INFO	====> Epoch: 10

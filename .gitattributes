@@ -1,0 +1,4 @@
+python/gPT_SoVITS/model/v4/胡桃_ZH/*.ckpt filter=lfs diff=lfs merge=lfs -text
+python/gPT_SoVITS/model/v4/胡桃_ZH/*.pth filter=lfs diff=lfs merge=lfs -text
+python/gPT_SoVITS/model/v4/芙宁娜_ZH/*.ckpt filter=lfs diff=lfs merge=lfs -text
+python/gPT_SoVITS/model/v4/芙宁娜_ZH/*.pth filter=lfs diff=lfs merge=lfs -text

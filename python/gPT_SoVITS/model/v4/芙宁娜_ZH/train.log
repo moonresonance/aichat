@@ -1,0 +1,34 @@
+2025-05-02 19:07:26,976	芙宁娜_ZH	INFO	{'train': {'log_interval': 100, 'eval_interval': 500, 'seed': 1234, 'epochs': 10, 'learning_rate': 0.0001, 'betas': [0.8, 0.99], 'eps': 1e-09, 'batch_size': 8, 'fp16_run': True, 'lr_decay': 0.999875, 'segment_size': 20480, 'init_lr_ratio': 1, 'warmup_epochs': 0, 'c_mel': 45, 'c_kl': 1.0, 'text_low_lr_rate': 0.4, 'grad_ckpt': False, 'pretrained_s2G': 'GPT_SoVITS/pretrained_models/gsv-v4-pretrained/s2Gv4.pth', 'pretrained_s2D': '', 'if_save_latest': True, 'if_save_every_weights': True, 'save_every_epoch': 10, 'gpu_numbers': '0', 'lora_rank': 32}, 'data': {'max_wav_value': 32768.0, 'sampling_rate': 32000, 'filter_length': 2048, 'hop_length': 640, 'win_length': 2048, 'n_mel_channels': 128, 'mel_fmin': 0.0, 'mel_fmax': None, 'add_blank': True, 'n_speakers': 300, 'cleaned_text': True, 'exp_dir': 'logs/芙宁娜_ZH'}, 'model': {'inter_channels': 192, 'hidden_channels': 192, 'filter_channels': 768, 'n_heads': 2, 'n_layers': 6, 'kernel_size': 3, 'p_dropout': 0.1, 'resblock': '1', 'resblock_kernel_sizes': [3, 7, 11], 'resblock_dilation_sizes': [[1, 3, 5], [1, 3, 5], [1, 3, 5]], 'upsample_rates': [10, 8, 2, 2, 2], 'upsample_initial_channel': 512, 'upsample_kernel_sizes': [16, 16, 8, 2, 2], 'n_layers_q': 3, 'use_spectral_norm': False, 'gin_channels': 512, 'semantic_frame_rate': '25hz', 'freeze_quantizer': True, 'version': 'v4'}, 's2_ckpt_dir': 'logs/芙宁娜_ZH', 'content_module': 'cnhubert', 'save_weight_dir': 'SoVITS_weights_v4', 'name': '芙宁娜_ZH', 'version': 'v4', 'pretrain': None, 'resume_step': None}
+2025-05-02 19:07:36,215	芙宁娜_ZH	INFO	loaded pretrained GPT_SoVITS/pretrained_models/gsv-v4-pretrained/s2Gv4.pth
+2025-05-02 19:08:32,306	芙宁娜_ZH	INFO	Train Epoch: 1 [0%]
+2025-05-02 19:08:32,307	芙宁娜_ZH	INFO	[0.12116722762584686, 0, 9.99875e-05]
+2025-05-02 19:09:17,956	芙宁娜_ZH	INFO	====> Epoch: 1
+2025-05-02 19:09:21,740	芙宁娜_ZH	INFO	Train Epoch: 2 [5%]
+2025-05-02 19:09:21,740	芙宁娜_ZH	INFO	[0.0005587185733020306, 100, 9.99750015625e-05]
+2025-05-02 19:10:04,363	芙宁娜_ZH	INFO	====> Epoch: 2
+2025-05-02 19:10:10,151	芙宁娜_ZH	INFO	Train Epoch: 3 [11%]
+2025-05-02 19:10:10,151	芙宁娜_ZH	INFO	[0.00037309087929315865, 200, 9.996250468730469e-05]
+2025-05-02 19:10:50,836	芙宁娜_ZH	INFO	====> Epoch: 3
+2025-05-02 19:11:00,109	芙宁娜_ZH	INFO	Train Epoch: 4 [16%]
+2025-05-02 19:11:00,109	芙宁娜_ZH	INFO	[0.14930054545402527, 300, 9.995000937421877e-05]
+2025-05-02 19:11:36,702	芙宁娜_ZH	INFO	====> Epoch: 4
+2025-05-02 19:11:48,019	芙宁娜_ZH	INFO	Train Epoch: 5 [21%]
+2025-05-02 19:11:48,019	芙宁娜_ZH	INFO	[0.18224841356277466, 400, 9.993751562304699e-05]
+2025-05-02 19:12:24,191	芙宁娜_ZH	INFO	====> Epoch: 5
+2025-05-02 19:12:38,513	芙宁娜_ZH	INFO	Train Epoch: 6 [26%]
+2025-05-02 19:12:38,513	芙宁娜_ZH	INFO	[0.005519643425941467, 500, 9.99250234335941e-05]
+2025-05-02 19:13:10,003	芙宁娜_ZH	INFO	====> Epoch: 6
+2025-05-02 19:13:26,206	芙宁娜_ZH	INFO	Train Epoch: 7 [32%]
+2025-05-02 19:13:26,207	芙宁娜_ZH	INFO	[0.13180656731128693, 600, 9.991253280566489e-05]
+2025-05-02 19:13:55,494	芙宁娜_ZH	INFO	====> Epoch: 7
+2025-05-02 19:14:14,615	芙宁娜_ZH	INFO	Train Epoch: 8 [37%]
+2025-05-02 19:14:14,615	芙宁娜_ZH	INFO	[0.13562150299549103, 700, 9.990004373906418e-05]
+2025-05-02 19:14:42,024	芙宁娜_ZH	INFO	====> Epoch: 8
+2025-05-02 19:15:02,022	芙宁娜_ZH	INFO	Train Epoch: 9 [42%]
+2025-05-02 19:15:02,022	芙宁娜_ZH	INFO	[0.036011356860399246, 800, 9.98875562335968e-05]
+2025-05-02 19:15:28,360	芙宁娜_ZH	INFO	====> Epoch: 9
+2025-05-02 19:15:53,761	芙宁娜_ZH	INFO	Train Epoch: 10 [47%]
+2025-05-02 19:15:53,764	芙宁娜_ZH	INFO	[0.0039222948253154755, 900, 9.987507028906759e-05]
+2025-05-02 19:16:17,196	芙宁娜_ZH	INFO	Saving model and optimizer state at iteration 10 to logs/芙宁娜_ZH/logs_s2_v4_lora_32/G_233333333333.pth
+2025-05-02 19:16:21,384	芙宁娜_ZH	INFO	saving ckpt 芙宁娜_ZH_e10:Success.
+2025-05-02 19:16:21,385	芙宁娜_ZH	INFO	====> Epoch: 10
