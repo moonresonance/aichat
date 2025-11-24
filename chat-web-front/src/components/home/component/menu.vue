@@ -67,6 +67,10 @@ const fetchMenuList = async () => {
   }
 };
 
+defineExpose({
+  fetchMenuList
+});
+
 // ---------- 操作 ----------
 const handleClick = (item: SessionItem) => {
   if (selectedId.value === item.id) return;

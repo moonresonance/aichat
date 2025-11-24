@@ -35,5 +35,11 @@ public class ChatController {
         return Result.success("删除成功");
     }
 
+    @PutMapping("/updateChat")
+    public Result<Chat> updateChat(@RequestBody Chat chat) {
+
+        chatService.updataChat(chat);
+        return Result.success("更新成功");
+    }
 
 }

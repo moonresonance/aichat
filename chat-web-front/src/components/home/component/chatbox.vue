@@ -56,13 +56,23 @@
               ></div>
             </div>
             <div v-if="m.sender === 'ai'" class="message-actions">
-              <button class="act-btn" @click="copyMessage(m)">⧉</button>
+              <button class="act-btn copy-btn" @click="copyMessage(m)" title="复制内容">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
               <button
-                  class="act-btn"
+                  class="act-btn regen-btn"
                   v-if="isLastAI(m) && !isGenerating"
                   @click="regenerate(m)"
+                  title="重新生成"
               >
-                ↻
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
               </button>
             </div>
           </div>
@@ -134,7 +144,9 @@
 <!--      </svg>-->
 <!--    </button>-->
     <div class="live2d-panel" ref="live2dPanel">
-    <live2d ref="live2dRef" />
+      <keep-alive>
+        <live2d ref="live2dRef" />
+      </keep-alive>
     </div>
   </div>
 
@@ -146,10 +158,22 @@ import { marked } from "marked";
 import hljs from "highlight.js/lib/common";
 import "highlight.js/styles/github.css";
 import { ElMessage } from "element-plus";
-import { chatbyqwen3, getchatlist, addchat } from "@/api/chatapi";
+import { chatbyqwen3, getchatlist, addchat , updatechat } from "@/api/chatapi";
+import { updateSession } from "@/api/session";
 import { useUserStore } from "@/stores/user";
-import {useAnswerStore} from "@/stores/answer";
 import Live2d from "@/components/home/component/live2d.vue";
+
+// 配置 marked 使用 highlight.js
+marked.use({
+  renderer: {
+    code(code, lang) {
+      const validLang = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+      const highlighted = hljs.highlight(code, { language: validLang }).value;
+      return `<pre><code class="hljs language-${validLang}">${highlighted}</code></pre>`;
+    }
+  }
+});
+
 // === 类型定义 ===
 interface Message {
   id: number;
@@ -166,6 +190,10 @@ const userStore = useUserStore();
 const props = defineProps<{
   sessionId: number | null;
   userId: number | null;
+}>();
+
+const emit = defineEmits<{
+  (e: "sessionTitleUpdated"): void;
 }>();
 
 // === 响应式数据 ===
@@ -203,36 +231,6 @@ const AUTO_SCROLL_THRESHOLD = 150;
 let renderTimer: number | null = null;
 let pendingRenderMessage: Message | null = null;
 
-// === 高亮代码 ===
-const highlightBlocks = () => {
-  nextTick(() => {
-    document
-        .querySelectorAll(".message-answer.ai pre code, .message-content pre code")
-        .forEach((el: any) => {
-          // 给 pre 标签添加语言标签
-          const pre = el.parentElement;
-          if (pre && pre.tagName === 'PRE') {
-            const classNames = el.className || '';
-            const match = classNames.match(/language-(\w+)/);
-            const lang = match ? match[1] : 'code';
-            pre.setAttribute('data-language', lang);
-          }
-          
-          // 高亮代码
-          hljs.highlightElement(el);
-        });
-  });
-};
-
-let highlightTimer: number | null = null;
-const scheduleHighlight = () => {
-  if (highlightTimer !== null) return;
-  highlightTimer = window.setTimeout(() => {
-    highlightTimer = null;
-    highlightBlocks();
-  }, 120);
-};
-
 // 批量渲染 Markdown，减少 DOM 重排
 const scheduleRender = (msg: Message) => {
   pendingRenderMessage = msg;
@@ -268,12 +266,7 @@ const immediateScrollToBottom = (force = false) => {
 
   scrollAnimationId = requestAnimationFrame(() => {
     const targetTop = container.scrollHeight - container.clientHeight;
-    const distance = targetTop - container.scrollTop;
-    if (!force && Math.abs(distance) <= AUTO_SCROLL_THRESHOLD) {
-      scrollAnimationId = null;
-      return;
-    }
-
+    
     container.scrollTop = force ? container.scrollHeight : targetTop;
     scrollAnimationId = null;
   });
@@ -291,9 +284,13 @@ const recomputeScrollButton = () => {
 };
 
 const handleScrollToBottom = () => {
-  scrollToBottom();
+  const el = getScrollEl();
+  if (el) {
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }
   newMessagesPending.value = false;
   showScrollToBottom.value = false;
+  shouldAutoScroll = true;
 };
 
 // === 样式高度自适应 ===
@@ -316,10 +313,17 @@ const isLastAI = (msg: Message) => {
 // === 消息操作函数 ===
 const safeRender = (text: string): string => {
   try {
-    const sanitized = text
+    let sanitized = text
         .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
         .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
         .replace(/on\w+\s*=\s*'[^']*'/gi, "");
+    
+    // 自动闭合未闭合的代码块，确保在流式输出时能即时显示代码块样式
+    const backtickCount = (sanitized.match(/```/g) || []).length;
+    if (backtickCount % 2 !== 0) {
+      sanitized += '\n```';
+    }
+
     return marked.parse(sanitized) as string;
   } catch (e) {
     return text;
@@ -418,6 +422,8 @@ const stopGeneration = () => {
 
 // === 重生 AI 消息 ===
 const regenerate = async (aiMsg: Message) => {
+    // 重置 AI 消息内容和状态
+  console.log("重生消息，问题为:", aiMsg);
   if (isGenerating.value) return;
 
   const idx = messages.value.indexOf(aiMsg);
@@ -426,7 +432,7 @@ const regenerate = async (aiMsg: Message) => {
     ElMessage.warning("无可重生的问题");
     return;
   }
-
+  // 重置 AI 消息内容和状态
   aiMsg.content = "";
   aiMsg.html = "";
   aiMsg.think = "AI 正在思考";
@@ -462,9 +468,10 @@ const regenerate = async (aiMsg: Message) => {
     }
 
     aiMsg.think = thinkText;
-
+     console.log(aiMsg.id);
     try {
-      const savedAI = await addchat({
+      const savedAI = await updatechat({
+        id: aiMsg.id,
         userId: props.userId!,
         sessionId: props.sessionId!,
         role: "ai",
@@ -481,7 +488,6 @@ const regenerate = async (aiMsg: Message) => {
     
     // 等待 DOM 渲染
     await nextTick();
-    scheduleHighlight();
 
     // 流式显示 AI 回复 - 逐字填充内容
     let i = 0;
@@ -496,14 +502,13 @@ const regenerate = async (aiMsg: Message) => {
         
         trimLeading(aiMsg);
         isGenerating.value = false;
-        scheduleHighlight();
         return;
       }
       
       aiMsg.content += answerText[i];
       aiMsg.html = safeRender(aiMsg.content);
       i++;
-
+      
       const el = getScrollEl();
       if (el && !isAtBottom(el)) {
         newMessagesPending.value = true;
@@ -512,9 +517,10 @@ const regenerate = async (aiMsg: Message) => {
     }, 20);
   } catch (e: any) {
     clearInterval(thinkAnimation);
-    aiMsg.think = "";
-    aiMsg.content = "重新生成失败: " + e.message;
+    // 失败时直接将错误信息替换为消息内容
+    aiMsg.content = "AI 回复失败，请稍后再试。错误: " + e.message;
     aiMsg.html = safeRender(aiMsg.content);
+    aiMsg.think = "";
     isGenerating.value = false;
   }
 };
@@ -555,19 +561,6 @@ const sendMessage = async () => {
 
   scrollToBottom();
 
-  // 保存用户消息到数据库
-  try {
-    const saved = await addchat({
-      userId: props.userId,
-      sessionId: props.sessionId,
-      role: "user",
-      content: question,
-    });
-    if (saved?.data?.id) userMessage.id = saved.data.id;
-  } catch (err) {
-    console.error("保存用户消息失败:", err);
-  }
-
   // AI 临时消息 - 添加到列表中，显示思考状态
   const aiMessage: Message = reactive({
     id: Date.now() + 1,
@@ -600,8 +593,9 @@ const sendMessage = async () => {
     });
 
     clearInterval(thinkAnimation);
-
+    console.log("AI 回复数据:", response);
     const answerRaw = response?.answer || response?.data?.answer || response;
+    const newTitle = response?.summary|| response?.data?.summary || "";
     let thinkText = "";
     let answerText = "";
 
@@ -615,7 +609,20 @@ const sendMessage = async () => {
 
     aiMessage.think = thinkText;
 
-    // 保存 AI 消息到数据库
+    // 保存用户消息到数据库
+    try {
+      const savedUser = await addchat({
+        userId: props.userId,
+        sessionId: props.sessionId,
+        role: "user",
+        content: question,
+      });
+      if (savedUser?.data?.id) userMessage.id = savedUser.data.id;
+    } catch (err) {
+      console.error("保存用户消息失败:", err);
+    }
+
+    // 保存 AI 消消息到数据库
     try {
       const savedAI = await addchat({
         userId: props.userId,
@@ -636,10 +643,10 @@ const sendMessage = async () => {
     
     // 等待 DOM 渲染
     await nextTick();
-    scheduleHighlight();
     immediateScrollToBottom(true);
     
     let answerIndex = 0;
+    let lastScrollTime = 0;
     
     answerInterval = setInterval(() => {
       if (answerIndex >= answerText.length) {
@@ -652,17 +659,31 @@ const sendMessage = async () => {
         
         trimLeading(aiMessage);
         isGenerating.value = false;
-        scheduleHighlight();
         // AI 回复完成后强制滚动到底部
-        immediateScrollToBottom(true);
+        nextTick(() => immediateScrollToBottom(true));
+
+        // 自动修改标题逻辑
+        if (messages.value.length === 3 && props.sessionId) {
+           const userMsg = messages.value[1];
+           if (userMsg && userMsg.sender === 'user') {
+               updateSession({ id: props.sessionId, name: newTitle }).then(() => {
+                   emit('sessionTitleUpdated');
+               }).catch((err: any) => console.error("Failed to update session title", err));
+           }
+        }
         return;
       }
       
       aiMessage.content += answerText[answerIndex];
       aiMessage.html = safeRender(aiMessage.content);
       answerIndex++;
-
-      immediateScrollToBottom();
+      
+      // 节流滚动，避免频繁重绘导致抖动
+      const now = Date.now();
+      if (now - lastScrollTime > 100) {
+        nextTick(() => immediateScrollToBottom());
+        lastScrollTime = now;
+      }
 
       const el2 = getScrollEl();
       if (el2 && !isAtBottom(el2)) {
@@ -675,17 +696,38 @@ const sendMessage = async () => {
     context.value.push(`A: ${answerText}`);
   } catch (error: any) {
     clearInterval(thinkAnimation);
-    // 添加错误消息到列表
-    const errorMessage: Message = reactive({
-      id: Date.now() + 1,
-      content: "AI 回复失败，请稍后再试。错误: " + error.message,
-      think: "",
-      sender: "ai",
-      timestamp: new Date(),
-      html: "",
-    });
-    messages.value.push(errorMessage);
-    // 错误消息也滚动到底部
+    // 失败时直接将错误信息替换为消息内容
+    const errorMessage = "AI 回复失败，请稍后再试。错误: " + error.message;
+    aiMessage.content = errorMessage;
+    aiMessage.html = safeRender(aiMessage.content);
+    aiMessage.think = "";
+
+    // 保存用户消息
+    try {
+      const savedUser = await addchat({
+        userId: props.userId,
+        sessionId: props.sessionId,
+        role: "user",
+        content: question,
+      });
+      if (savedUser?.data?.id) userMessage.id = savedUser.data.id;
+    } catch (err) {
+      console.error("保存用户消息失败:", err);
+    }
+
+    // 保存 AI 错误消息
+    try {
+      const savedAI = await addchat({
+        userId: props.userId,
+        sessionId: props.sessionId,
+        role: "ai",
+        content: errorMessage,
+      });
+      if (savedAI?.data?.id) aiMessage.id = savedAI.data.id;
+    } catch (err) {
+      console.error("保存 AI 错误消息失败:", err);
+    }
+
     nextTick(() => {
       immediateScrollToBottom(true);
     });
@@ -748,7 +790,6 @@ watch(
       
       // 消息加载完成后滚动到底部
       nextTick(() => {
-  scheduleHighlight();
         // 确保 transition-group 动画完成后再滚动
         setTimeout(() => {
           shouldAutoScroll = true;
@@ -775,7 +816,6 @@ onMounted(async () => {
       recomputeScrollButton();
       immediateScrollToBottom(true);
     }
-    highlightBlocks();
   });
 });
 // 自动下滑功能
@@ -788,7 +828,6 @@ const handleScroll = () => {
   showScrollToBottom.value = !nearBottom;
 
   if (nearBottom) {
-    immediateScrollToBottom();
     newMessagesPending.value = false;
   }
 };
@@ -796,10 +835,6 @@ const handleScroll = () => {
 onUnmounted(() => {
   const el = getScrollEl();
   if (el) el.removeEventListener("scroll", handleScroll);
-  if (highlightTimer !== null) {
-    clearTimeout(highlightTimer);
-    highlightTimer = null;
-  }
   if (renderTimer !== null) {
     clearTimeout(renderTimer);
     renderTimer = null;
@@ -869,7 +904,6 @@ onUnmounted(() => {
   padding: 20px;
   position: relative;
   max-height: calc(100vh - 280px);
-  scroll-behavior: smooth;
 }
 
 /* 自定义滚动条样式 */
@@ -1007,23 +1041,58 @@ onUnmounted(() => {
   word-wrap: break-word;
   white-space: pre-wrap;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
+  will-change: transform, box-shadow;
   contain: layout style;
   min-width: 0;
+  animation: bubbleAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 气泡入场动画 */
+@keyframes bubbleAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(10px);
+  }
+  70% {
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .message-content:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: bubbleHover 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.message-content:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+/* 气泡悬停脉冲动画 */
+@keyframes bubbleHover {
+  0%, 100% {
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
+  }
+  50% {
+    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.15));
+  }
 }
 .message-item.ai .message-content {
   background-color: var(--ai-message-bg);
   color: var(--text-primary);
   border-bottom-left-radius: 4px;
+  animation: bubbleAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+             aiMessageGlow 3s ease-in-out infinite;
+}
+
+/* AI消息柔和发光动画 */
+@keyframes aiMessageGlow {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
+  }
 }
 
 .message-item.user .message-content {
@@ -1032,6 +1101,18 @@ onUnmounted(() => {
   border-bottom-right-radius: 4px;
   position: relative;
   overflow: hidden;
+  animation: bubbleAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+             userMessagePulse 2.5s ease-in-out infinite;
+}
+
+/* 用户消息脉冲动画 */
+@keyframes userMessagePulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(79, 159, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(79, 159, 255, 0.3);
+  }
 }
 
 .message-item.user .message-content::after {
@@ -1080,9 +1161,45 @@ onUnmounted(() => {
   font-size: 14px;
   transform: translateZ(0);
   backface-visibility: hidden;
+  animation: textReveal 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+/* 文字逐渐显示动画 */
+@keyframes textReveal {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
 .message-answer.ai {
   color: var(--text-primary);
+}
+
+/* 段落动画 */
+.message-answer p,
+.message-content p {
+  animation: paragraphFade 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transition: all 0.3s ease;
+}
+
+/* 段落淡入动画 */
+@keyframes paragraphFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.message-answer p:hover {
+  color: var(--accent-color);
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
 }
 
 /* 确保空段落也有高度 */
@@ -1108,39 +1225,113 @@ onUnmounted(() => {
   align-self: flex-start;
   padding-left: 10px;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: actionsAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* 操作按钮出现动画 */
+@keyframes actionsAppear {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .message-item:hover .message-actions {
   opacity: 1;
 }
 
 .act-btn {
-  font-size: 12px;
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 1px solid var(--sidebar-border);
   background: var(--sidebar-bg);
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   color: var(--muted);
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+  animation: buttonFloat 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.act-btn svg {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.act-btn.copy-btn:hover svg {
+  transform: scale(1.15);
+}
+
+.act-btn.regen-btn:hover svg {
+  animation: spinReverse 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes spinReverse {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(-360deg); }
+}
+
+/* 按钮浮现动画 */
+@keyframes buttonFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.act-btn:nth-child(1) { animation-delay: 0.05s; }
+.act-btn:nth-child(2) { animation-delay: 0.1s; }
+
+.act-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: var(--accent-ghost);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+  z-index: 0;
+}
+
+.act-btn:active::before {
+  width: 100px;
+  height: 100px;
 }
 
 .act-btn:hover {
   background: var(--sidebar-hover);
-  color: var(--text-primary);
-  transform: scale(1.08);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  color: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  border-color: var(--accent-color);
 }
 
 .act-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.95) translateY(0);
 }
 
 /* markdown 内部基础样式 */
 .message-answer.ai pre code {
   display: block;
   padding: 12px;
-  background: #1e293b;
+  background: #000000;
   color: #e2e8f0;
   border-radius: 6px;
   overflow: auto;
@@ -1148,10 +1339,29 @@ onUnmounted(() => {
   border: 1px solid #334155;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   line-height: 1.5;
+  animation: codeBlockSlide 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.3s ease;
+}
+
+/* 代码块入场动画 */
+@keyframes codeBlockSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.message-answer.ai pre code:hover {
+  border-color: #475569;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 [data-theme="dark"] .message-answer.ai pre code {
-  background: #1e293b;
+  background: #000000;
   color: #e2e8f0;
   border-color: #334155;
 }
@@ -1164,6 +1374,26 @@ onUnmounted(() => {
   font-size: 90%;
   border: 1px solid rgba(30, 41, 59, 0.15);
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  animation: inlineCodePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.2s ease;
+}
+
+/* 行内代码动画 */
+@keyframes inlineCodePop {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.message-answer.ai code:not(pre code):hover {
+  background: rgba(30, 41, 59, 0.35);
+  border-color: rgba(30, 41, 59, 0.3);
+  transform: translateY(-1px);
 }
 
 [data-theme="dark"] .message-answer.ai code:not(pre code) {
@@ -1171,14 +1401,74 @@ onUnmounted(() => {
   color: #cbd5e1;
   border-color: rgba(148, 163, 184, 0.25);
 }
+
+[data-theme="dark"] .message-answer.ai code:not(pre code):hover {
+  background: rgba(148, 163, 184, 0.3);
+  border-color: rgba(148, 163, 184, 0.4);
+}
 .message-answer.ai h1,
 .message-answer.ai h2,
 .message-answer.ai h3 {
   margin: 12px 0 8px;
+  animation: headingSlide 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
+
+/* 标题滑入动画 */
+@keyframes headingSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(-15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.message-answer.ai h1:hover,
+.message-answer.ai h2:hover,
+.message-answer.ai h3:hover {
+  text-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  transform: translateX(4px);
+}
+
 .message-answer.ai ul {
   padding-left: 20px;
+  animation: listFade 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* 列表淡入动画 */
+@keyframes listFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.message-answer.ai ul li {
+  animation: listItemSlide 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+/* 列表项逐个滑入 */
+@keyframes listItemSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.message-answer.ai ul li:nth-child(1) { animation-delay: 0.1s; }
+.message-answer.ai ul li:nth-child(2) { animation-delay: 0.2s; }
+.message-answer.ai ul li:nth-child(3) { animation-delay: 0.3s; }
+.message-answer.ai ul li:nth-child(4) { animation-delay: 0.4s; }
+.message-answer.ai ul li:nth-child(n+5) { animation-delay: 0.5s; }
 .chat-input-area {
   padding:10px 5px 20px;
   background-color: transparent;
@@ -1362,6 +1652,24 @@ onUnmounted(() => {
       0 0 0 1px rgba(255, 255, 255, 0.15) inset;
   }
 }
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-elevated) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    var(--surface-elevated) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+  border-radius: 8px;
+}
+
 .send-button svg {
   width: 22px;
   height: 22px;
@@ -1497,8 +1805,7 @@ onUnmounted(() => {
     0 0 0 1px rgba(15, 23, 42, 0.05);
   border: 1px solid var(--border-subtle);
   padding: 12px 16px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* 移除 backdrop-filter 以解决 Windows 下字体渲染模糊问题 */
 }
 
 [data-theme="dark"] .message-content.ai,
@@ -1541,12 +1848,10 @@ onUnmounted(() => {
 .message-content pre {
   padding: 0;
   overflow: hidden;
-  background: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid #334155;
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--code-border);
   margin: 8px 0;
-  transform: translateZ(0);
-  backface-visibility: hidden;
   min-height: 3em;
   position: relative;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -1581,12 +1886,28 @@ onUnmounted(() => {
   padding: 36px 12px 12px 12px;
   background: transparent;
   border: none;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.6;
   overflow-x: auto;
   white-space: pre;
   color: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  animation: codeBlockSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes codeBlockSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .message-content pre code:empty::before {
@@ -1594,11 +1915,7 @@ onUnmounted(() => {
   visibility: hidden;
 }
 
-[data-theme="dark"] .message-content pre {
-  background: #1e293b;
-  color: #e2e8f0;
-  border-color: #334155;
-}
+
 
 .message-content code {
   padding: 2px 6px;
@@ -1607,7 +1924,6 @@ onUnmounted(() => {
   color: #1e293b;
   border: 1px solid rgba(30, 41, 59, 0.2);
   font-size: 90%;
-  transform: translateZ(0);
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
 }
 
@@ -1770,5 +2086,98 @@ onUnmounted(() => {
 @media (max-width: 480px) {
   .live2d-panel { width: 100px; bottom: 50px; right: 10px; }
 }
+
+/* Override highlight.js styles - 使用主题变量 */
+:deep(.message-content pre),
+:deep(.message-answer pre),
+:deep(pre) {
+  background: var(--code-bg) !important;
+  color: var(--code-text) !important;
+  border: 1px solid var(--code-border);
+}
+
+:deep(.message-content pre code),
+:deep(.message-answer pre code),
+:deep(pre code) {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+:deep(.hljs) {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+/* Dark Mode Syntax Highlighting (High Contrast) */
+[data-theme="dark"] :deep(.hljs-comment),
+[data-theme="dark"] :deep(.hljs-quote) {
+  color: #94a3b8; /* Lighter gray */
+  font-style: italic;
+}
+
+[data-theme="dark"] :deep(.hljs-doctag),
+[data-theme="dark"] :deep(.hljs-keyword),
+[data-theme="dark"] :deep(.hljs-formula) {
+  color: #d8b4fe; /* Lighter purple */
+}
+
+[data-theme="dark"] :deep(.hljs-section),
+[data-theme="dark"] :deep(.hljs-name),
+[data-theme="dark"] :deep(.hljs-selector-tag),
+[data-theme="dark"] :deep(.hljs-deletion),
+[data-theme="dark"] :deep(.hljs-subst) {
+  color: #fca5a5; /* Lighter red */
+}
+
+[data-theme="dark"] :deep(.hljs-literal) {
+  color: #67e8f9; /* Lighter cyan */
+}
+
+[data-theme="dark"] :deep(.hljs-string),
+[data-theme="dark"] :deep(.hljs-regexp),
+[data-theme="dark"] :deep(.hljs-addition),
+[data-theme="dark"] :deep(.hljs-attribute),
+[data-theme="dark"] :deep(.hljs-meta .hljs-string) {
+  color: #86efac; /* Lighter green */
+}
+
+[data-theme="dark"] :deep(.hljs-attr),
+[data-theme="dark"] :deep(.hljs-variable),
+[data-theme="dark"] :deep(.hljs-template-variable),
+[data-theme="dark"] :deep(.hljs-type),
+[data-theme="dark"] :deep(.hljs-selector-class),
+[data-theme="dark"] :deep(.hljs-selector-attr),
+[data-theme="dark"] :deep(.hljs-selector-pseudo),
+[data-theme="dark"] :deep(.hljs-number) {
+  color: #fcd34d; /* Lighter amber/orange */
+}
+
+[data-theme="dark"] :deep(.hljs-symbol),
+[data-theme="dark"] :deep(.hljs-bullet),
+[data-theme="dark"] :deep(.hljs-link),
+[data-theme="dark"] :deep(.hljs-meta),
+[data-theme="dark"] :deep(.hljs-selector-id),
+[data-theme="dark"] :deep(.hljs-title) {
+  color: #93c5fd; /* Lighter blue */
+}
+
+[data-theme="dark"] :deep(.hljs-built_in),
+[data-theme="dark"] :deep(.hljs-title.class_),
+[data-theme="dark"] :deep(.hljs-class .hljs-title) {
+  color: #fde047; /* Lighter yellow */
+}
+
+[data-theme="dark"] :deep(.hljs-emphasis) {
+  font-style: italic;
+}
+
+[data-theme="dark"] :deep(.hljs-strong) {
+  font-weight: bold;
+}
+
+[data-theme="dark"] :deep(.hljs-link) {
+  text-decoration: underline;
+}
+
 
 </style>

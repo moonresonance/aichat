@@ -9,4 +9,5 @@ public interface ChatService extends IService<Chat> {
     List<Chat> getUserChatsAndSessionId(Integer userId,Integer sessionId);
     void insertChat(Chat chat);
     void deleteChaBySessionId(Integer sessionId);
+    void updataChat(Chat chat);
 }

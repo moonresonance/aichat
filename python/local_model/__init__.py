@@ -1,13 +1,20 @@
+import os
+
 import requests
+from dotenv import load_dotenv
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from transformers import T5Tokenizer
 from modelscope.pipelines import pipeline as modelscope_pipeline
 from modelscope.utils.constant import Tasks
-
 from modelscope.preprocessors import TextGenerationTransformersPreprocessor
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain_ollama import OllamaLLM
+from langchain_community.chat_models import ChatTongyi
 
+
+load_dotenv()
+os.environ["DASHSCOPE_API_KEY"] =os.getenv("QWEN_KEY")
+llm=ChatTongyi(model="qwen-plus")
 
 class LocalModel:
     def __init__(self, model_path, config):
@@ -53,4 +60,14 @@ class LocalModel:
         data = resp.json()
         result = data["choices"][0]["message"]["content"]
         return result
+
+
+
+    def load_tongyi(self, message):
+        result= llm.invoke(message).content
+        return result
+
+
+
+
 

@@ -8,9 +8,11 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 
 import java.util.List;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 public class ChatServiceImp extends ServiceImpl<ChatMapper, Chat> implements ChatService {
 
     @Override
@@ -30,5 +32,10 @@ public class ChatServiceImp extends ServiceImpl<ChatMapper, Chat> implements Cha
     public void deleteChaBySessionId(Integer sessionId) {
         QueryWrapper<Chat> queryWrapper = new QueryWrapper<>();
         baseMapper.delete(queryWrapper.eq("session_id",sessionId));
+    }
+
+    @Override
+    public void updataChat(Chat chat) {
+        baseMapper.updateById(chat);
     }
 }

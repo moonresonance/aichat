@@ -67,7 +67,10 @@ const select = (mode: ThemeMode) => {
   border-radius: 999px;
   padding: 4px;
   gap: 4px;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: background, border-color;
 }
 
 .theme-button {
@@ -83,7 +86,8 @@ const select = (mode: ThemeMode) => {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease-out, color 0.2s ease-out, box-shadow 0.2s ease-out;
+  will-change: auto;
 }
 
 .theme-button.dense {
@@ -96,6 +100,8 @@ const select = (mode: ThemeMode) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.25s ease-out;
+  will-change: transform;
 }
 
 .theme-button .icon svg {
@@ -112,17 +118,26 @@ const select = (mode: ThemeMode) => {
   background: var(--accent-ghost);
 }
 
+.theme-button:hover .icon {
+  transform: rotate(12deg);
+}
+
 .theme-button.active {
   color: var(--accent-contrast);
   background: var(--accent-color);
-  box-shadow: 0 6px 14px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.35);
+}
+
+.theme-button.active .icon {
+  transform: rotate(0deg) scale(1);
 }
 
 .theme-button.active:hover {
-  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(59, 130, 246, 0.4);
 }
 
 :global([data-theme="dark"]) .theme-toggle {
   background: var(--surface-overlay);
+  border-color: rgba(148, 163, 184, 0.15);
 }
 </style>

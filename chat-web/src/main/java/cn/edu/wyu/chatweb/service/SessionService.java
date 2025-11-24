@@ -11,4 +11,7 @@ public interface SessionService extends IService<Session> {
     void addSession(Session session);
     void delSession(int id);
     Session getSession(int id);
+
+    void updateSession(Session session);
+
 }

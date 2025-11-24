@@ -8,10 +8,15 @@ import { useUserStore } from "@/stores/user";
 const userStore = useUserStore();
 const userId = userStore.userState?.id || null;
 const selectedSessionId = ref<number | null>(null);
+const menuRef = ref<InstanceType<typeof MenuComp> | null>(null);
 
 const handleSelectSession = (id: number) => {
   console.log("父组件收到 sessionId:", id);
   selectedSessionId.value = id;
+};
+
+const handleSessionUpdate = () => {
+  menuRef.value?.fetchMenuList();
 };
 
 const handleDeletedSession = (id: number) => {
@@ -27,13 +32,18 @@ const handleDeletedSession = (id: number) => {
     <div class="home-frame">
       <div class="menu">
         <MenuComp
+          ref="menuRef"
           :userId="userId"
           @selectSession="handleSelectSession"
           @deletedSession="handleDeletedSession"
         />
       </div>
       <div class="chat-box">
-        <ChatBox :sessionId="selectedSessionId" :userId="userId" />
+        <ChatBox 
+          :sessionId="selectedSessionId" 
+          :userId="userId" 
+          @sessionTitleUpdated="handleSessionUpdate"
+        />
       </div>
     </div>
   </div>

@@ -29,4 +29,9 @@ public class SessionServiceImp extends ServiceImpl<SessionMapper, Session> imple
     public Session getSession(int id) {
         return baseMapper.selectById(id);
     }
+
+    @Override
+    public void updateSession(Session session) {
+        baseMapper.updateById(session);
+    }
 }

@@ -1,5 +1,12 @@
 @import "./base.css";
 
+/* 全局主题切换动画 */
+html {
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* 全局排版与背景 */
 html,
 body,
@@ -10,9 +17,10 @@ body,
     Roboto, "Helvetica Neue", Arial;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(180deg, var(--bg-start), var(--bg-end));
+  background: var(--bg-gradient);
   color: var(--text-primary);
-  transition: background 0.3s ease, color 0.3s ease;
+  transition: background 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #app {
@@ -27,7 +35,8 @@ body,
   z-index: -1;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.45s ease;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   background-image:
     radial-gradient(2px 2px at 20% 20%, rgba(255, 255, 255, 0.95), transparent 60%),
     radial-gradient(1px 1px at 40% 70%, rgba(255, 255, 255, 0.85), transparent 55%),
@@ -60,10 +69,13 @@ body,
                    400px 400px, 460px 460px, 600px 600px, 340px 340px, 620px 620px,
                    320px 320px, 640px 640px, 300px 300px, 660px 660px, 280px 280px,
                    680px 680px, 260px 260px, 700px 700px, 240px 240px, 720px 720px;
+  filter: brightness(1);
+  will-change: opacity;
 }
 
 [data-theme="dark"] #app::before {
   opacity: 1;
+  filter: brightness(1.2);
   animation: starfieldTwinkle 5s ease-in-out infinite;
 }
 
@@ -92,6 +104,7 @@ a {
 
   --bg-start: #f3f6fb;
   --bg-end: #eef2f7;
+  --bg-gradient: linear-gradient(180deg, var(--bg-start), var(--bg-end));
 
   --text-primary: #0f172a;
   --text-secondary: rgba(15, 23, 42, 0.65);
@@ -136,9 +149,9 @@ a {
   --message-text: #0f1419;
   --message-subtext: #6b7280;
 
-  --code-bg: #f1f5f9;
-  --code-border: rgba(15, 23, 42, 0.08);
-  --code-text: #0f172a;
+  --code-bg: #f8fafc;
+  --code-border: rgba(148, 163, 184, 0.25);
+  --code-text: #1e293b;
 
   --control-bg: rgba(247, 249, 255, 0.9);
   --control-border: rgba(15, 23, 42, 0.12);
@@ -150,8 +163,9 @@ a {
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg-start: #000000;
-  --bg-end: #000000;
+  --bg-start: #04050c;
+  --bg-end: #020307;
+  --bg-gradient: linear-gradient(180deg, #04050c 0%, #070d1a 55%, #020307 100%);
 
   --text-primary: #e2e8f0;
   --text-secondary: rgba(148, 163, 184, 0.78);
@@ -196,8 +210,8 @@ a {
   --message-text: #f1f5f9;
   --message-subtext: rgba(148, 163, 184, 0.72);
 
-  --code-bg: rgba(11, 19, 28, 0.95);
-  --code-border: rgba(56, 74, 105, 0.65);
+  --code-bg: rgba(13, 19, 33, 0.85);
+  --code-border: rgba(59, 130, 246, 0.2);
   --code-text: #e2e8f0;
 
   --control-bg: rgba(20, 29, 45, 0.92);

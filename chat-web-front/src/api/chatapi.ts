@@ -38,3 +38,12 @@ export function deletechat(data: any) {
         }
     })
 }
+
+export function updatechat(data: any) {
+    return request({
+        url: 'http://localhost:8080/chat/updateChat',
+        method: 'put',
+        data
+    })
+}
+

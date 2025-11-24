@@ -5,11 +5,10 @@ from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
-from python.local_model import LocalModel
-import mysql.connector  # 用于 MySQL 数据库访问
-from mysql.connector import Error, pooling
+from local_model import LocalModel
 
-from python.mysql import MySQLPool
+
+from mysql_client import MySQLPool
 
 # 加载环境变量
 load_dotenv()
@@ -73,8 +72,16 @@ async def chat(request: ChatRequest):
 
     # 使用上下文生成回答
     try:
-        answer = model.load_qwe3(ip, context)
-        return {"answer": answer}
+        # answer = model.load_qwe3(ip, context)
+        answer = model.load_tongyi(context)
+        if len(context)<4:
+            system_message={"role": "system", "content": "请我帮你总结一下刚才的问答内容，生成一个标题,不要超过10个字。例如：AI助手友好问候并提供帮助"}
+             # 插入到上下文的最前面
+            total=f"用户问题：{question}\nAI回答：{answer}"+"帮我总结一下以上内容"
+            summary = model.load_tongyi([system_message,{"role": "user", "content": total}])
+        else:
+            summary=None
+        return {"answer": answer, "summary": summary}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating answer: {str(e)}")
 

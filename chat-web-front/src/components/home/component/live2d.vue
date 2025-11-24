@@ -1,24 +1,43 @@
 <script setup lang="js">
 
 import * as live2d from 'live2d-render';
-import { onMounted, defineExpose } from "vue";
+import { onMounted, defineExpose, ref } from "vue";
+
+// 使用全局标志防止重复初始化
+const isInitialized = ref(false);
 
 onMounted(async () => {
-  await live2d.initializeLive2D({
-    CanvasId: "live2d-container",
-    BackgroundRGBA: [0.0, 0.0, 0.0, 0.0],
-    ResourcesPath: "/model/cat/sdwhite cat free.model3.json",
-    CanvasSize: { height: 300, width: 180 },
-    ShowToolBox: true,
-    LoadFromCache: true
-  });
+  // 检查是否已在全局窗口对象上标记初始化完成
+  if (window.__live2dInitialized__) {
+    isInitialized.value = true;
+    console.log('Live2D already initialized');
+    return;
+  }
 
-  console.log('finish loading');
+  try {
+    await live2d.initializeLive2D({
+      CanvasId: "live2d-container",
+      BackgroundRGBA: [0.0, 0.0, 0.0, 0.0],
+      ResourcesPath: "/model/cat/sdwhite cat free.model3.json",
+      CanvasSize: { height: 300, width: 180 },
+      ShowToolBox: true,
+      LoadFromCache: true
+    });
+
+    // 标记初始化完成
+    window.__live2dInitialized__ = true;
+    isInitialized.value = true;
+    console.log('Live2D initialization complete');
+  } catch (error) {
+    console.error('Live2D initialization failed:', error);
+  }
 });
 
 // 关闭 Live2D 气泡显示
 const sendMessage = async () => {
-  live2d.setMessageBox("");
+  if (isInitialized.value) {
+    live2d.setMessageBox("");
+  }
 };
 
 defineExpose({
@@ -45,30 +64,12 @@ defineExpose({
   aspect-ratio: 2 / 3; /* 保持模型比例 */
   z-index: 150;
   pointer-events: none;
-  transition: width 0.3s ease, transform 0.3s ease;
-  animation: live2dSlideIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes live2dSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-50%) translateX(60px) scale(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-50%) translateX(0) scale(1);
-  }
+  transition: width 0.3s ease;
+  will-change: auto;
 }
 
 #live2d-panel:hover {
   pointer-events: auto;
-  animation: live2dPulse 0.4s ease-out;
-}
-
-@keyframes live2dPulse {
-  0% { transform: translateY(-50%) scale(1); }
-  50% { transform: translateY(-50%) scale(1.08); }
-  100% { transform: translateY(-50%) scale(1.05); }
 }
 
 /* Canvas 填充容器 */
@@ -78,14 +79,18 @@ defineExpose({
   display: block;
 }
 
-/* 夜间模式下调整模型亮度 */
+/* 夜间模式下调整模型亮度 - 保持透明背景 */
+#live2d-container {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
 [data-theme="dark"] #live2d-container {
   filter: brightness(0.85) contrast(0.92) saturate(0.95);
   transition: filter 0.3s ease;
-  /* 添加背景隔离层，防止星空闪烁影响模型 */
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 12px;
-  padding: 8px;
+  background: transparent !important;
+  will-change: filter;
 }
 
 /* 响应式缩放 */
@@ -153,4 +158,3 @@ defineExpose({
 }
 
 </style>
-

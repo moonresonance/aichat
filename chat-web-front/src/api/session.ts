@@ -23,3 +23,11 @@ export async function deleteSession(params: { id: number }) {
     params,
   });
 }
+
+export async function updateSession(data: any) {
+  return request({
+    url: "http://localhost:8080/session/update",
+    method: "put",
+    data,
+  });
+}

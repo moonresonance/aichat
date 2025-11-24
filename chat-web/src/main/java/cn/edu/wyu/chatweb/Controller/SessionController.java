@@ -34,4 +34,10 @@ public class SessionController {
         return Result.success("删除成功");
     }
 
+    @PutMapping("/update")
+    public Result<String> updateSession(@RequestBody Session session) {
+        sessionService.updateSession(session);
+        return Result.success("更新成功");
+    }
+
 }
